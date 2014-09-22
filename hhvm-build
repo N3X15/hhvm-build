@@ -1,0 +1,710 @@
+#!/usr/bin/python
+'''
+A Crappy HHVM Compiler
+
+run with ./hhvm-build debian jessie 3.3
+'''
+import os, sys, yaml, tempfile, re, shutil, logging, subprocess, datetime, glob
+
+class Config(object):
+    def __init__(self, filename, default={}):
+        log.info("Loading {}...".format(filename))
+        with log:
+            self.cfg = default
+            if not os.path.isfile(filename):
+                log.warn('File not found, loading defaults.')
+                with open(filename, 'w') as f:
+                    yaml.dump(self.cfg, f, default_flow_style=False)
+                
+            with open(filename, 'r') as f:
+                self.cfg = yaml.load(f)
+        
+    def __getitem__(self, key):
+        return self.cfg.__getitem__(key)
+    
+    def __setitem__(self, key, value):
+        return self.cfg.__setitem__(key)
+    
+    def get(self, key, default=None):
+        parts = key.split('.')
+        try:
+            value = self.cfg[parts[0]]
+            if len(parts) == 1:
+                return value
+            for part in parts[1:]:
+                value = value[part]
+            return value
+        except KeyError:
+            return default
+        
+class Chdir(object):
+    def __init__(self, newdir):
+        self.pwd = os.path.abspath(os.getcwd())
+        self.chdir = newdir
+    
+    def __enter__(self):
+        try:
+            os.chdir(self.chdir)
+            log.info('cd ' + self.chdir)
+        except:
+            log.critical('Failed to chdir to {}.'.format(self.chdir))
+            sys.exit(1)
+        return self
+    
+    def __exit__(self, type, value, traceback):
+        try:
+            os.chdir(self.pwd)
+            log.info('cd ' + self.pwd)
+        except:
+            log.critical('Failed to chdir to {}.'.format(self.pwd))
+            sys.exit(1)
+        return False
+    
+class FPM(object):
+    def __init__(self):
+        self.name = ''
+        self.version = ''
+        self.input_type = ''
+        self.output_type = ''
+        self.workdir = ''
+        
+        self.dependencies = []
+        self.conflicts = []
+        self.replaces = []
+        self.provides = []
+        self.inputs = []
+        
+        self.filebinds = []
+    
+    def LoadControl(self, filename):
+        '''
+        Load Debian CONTROL file.
+        '''
+        with open(filename, 'r') as f:
+            for line in f:
+                directive, content = line.split(':', 1)
+                func = getattr(self, '_handle_' + directive.lower())
+                if func: func(content.strip(), line)
+    
+    def _handle_package(self, content, line):
+        self.name = content
+        
+    def _handle_version(self, content, line):
+        self.version = content
+        
+    def _handle_section(self, content, line):
+        return  # web
+        
+    def _handle_priority(self, content, line):
+        return  # optional
+    
+    def _handle_architecture(self, content, line):
+        self.architecture = content
+        
+    def _handle_essential(self, content, line):
+        return  # yes/no
+    
+    def _handle_depends(self, content, line):
+        self.dependencies = [x.strip() for x in content.split(',')]
+        
+    def _handle_maintainer(self, content, line):
+        self.maintainer = content
+        
+    def _handle_description(self, content, line):
+        self.description = content
+        
+    def AddDepend(self, depend):
+        self.dependencies += [depend]
+        
+    def Build(self, target_file, fpm='fpm'):
+        cmdline = [fpm]
+            
+        cmdline += ['-s', self.input_type]
+        cmdline += ['-t', self.output_type]
+        cmdline += ['-p', target_file]
+        cmdline += ['-n', self.name]
+        cmdline += ['-v', self.version]
+        cmdline += ['-a', self.architecture]
+        
+        if self.maintainer != '':cmdline += ['-m', self.maintainer]
+        if self.description != '':cmdline += ['--description', self.description]
+        
+        for dep in self.dependencies:
+            cmdline += ['-d', dep]
+            
+        for provided in self.provides:
+            cmdline += ['--provides', provided]
+            
+        for conflict in self.conflicts:
+            cmdline += ['--conflicts', conflict]
+            
+        for replacee in self.replaces:
+            cmdline += ['--replaces', replacee]
+            
+        for inp in self.inputs:
+            cmdline += [inp]
+            
+        cmd(cmdline, critical=True, echo=True)
+        
+class IndentLogger(object):
+    '''
+    Indents stuff.
+    '''
+    def __init__(self):
+        self.indent = 0
+        self.log = logging.getLogger()
+        
+    def __enter__(self):
+        self.indent += 1
+        return self
+    
+    def __exit__(self, type, value, traceback):
+        self.indent -= 1
+        return False
+    
+    def debug(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'DEBUG'.
+
+        To pass exception information, use the keyword argument exc_info with
+        a true value, e.g.
+
+        logger.debug("Houston, we have a %s", "thorny problem", exc_info=1)
+        """
+        if self.log.isEnabledFor(logging.DEBUG):
+            self._log(logging.DEBUG, msg, args, **kwargs)
+        return self
+
+    def info(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'INFO'.
+
+        To pass exception information, use the keyword argument exc_info with
+        a true value, e.g.
+
+        logger.info("Houston, we have a %s", "interesting problem", exc_info=1)
+        """
+        if self.log.isEnabledFor(logging.INFO):
+            self._log(logging.INFO, msg, args, **kwargs)
+        return self
+
+    def warning(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'WARNING'.
+
+        To pass exception information, use the keyword argument exc_info with
+        a true value, e.g.
+
+        logger.warning("Houston, we have a %s", "bit of a problem", exc_info=1)
+        """
+        if self.log.isEnabledFor(logging.WARNING):
+            self._log(logging.WARNING, msg, args, **kwargs)
+        return self
+
+    warn = warning
+
+    def error(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'ERROR'.
+
+        To pass exception information, use the keyword argument exc_info with
+        a true value, e.g.
+
+        logger.error("Houston, we have a %s", "major problem", exc_info=1)
+        """
+        if self.log.isEnabledFor(logging.ERROR):
+            self._log(logging.ERROR, msg, args, **kwargs)
+        return self
+
+    def exception(self, msg, *args, **kwargs):
+        """
+        Convenience method for logging an ERROR with exception information.
+        """
+        kwargs['exc_info'] = 1
+        self.error(msg, *args, **kwargs)
+        return self
+
+    def critical(self, msg, *args, **kwargs):
+        """
+        Log 'msg % args' with severity 'CRITICAL'.
+
+        To pass exception information, use the keyword argument exc_info with
+        a true value, e.g.
+
+        logger.critical("Houston, we have a %s", "major disaster", exc_info=1)
+        """
+        if self.log.isEnabledFor(logging.CRITICAL):
+            self._log(logging.CRITICAL, msg, args, **kwargs)
+        return self
+            
+    def _log(self, level, msg, args, exc_info=None, extra=None):
+        if isinstance(msg, str): 
+            indent = self.indent * '  '
+            self.log._log(level, indent + msg, args, exc_info, extra)
+        else:
+            self.log._log(level, msg, args, exc_info, extra)
+        
+log = None
+
+def bool2yn(b):
+    return 'Y' if b else 'N'
+
+def cmd(command, echo=False, env=os.environ, show_output=True, critical=False):
+    new_args=[command[0]]
+    for arg in command[1:]:
+        if '*' in arg or '?' in arg:
+            new_args += glob.glob(arg)
+        else:
+            new_args += [arg]
+    command=new_args
+    if echo:
+        log.info('$ ' + ' '.join(command))
+        
+    if show_output:
+        return subprocess.call(command, shell=False) != 0
+    output = ''
+    try:
+        output = subprocess.check_output(command, stderr=subprocess.STDOUT)
+        return True
+    except Exception as e:
+        log.error(repr(command))
+        log.error(output)
+        log.error(e)
+        if critical:
+            sys.exit(1)
+        return False
+
+def set_build_env(key, val):
+    global BUILD_ENV
+    log.info('Build env: {} = {}'.format(key, val))
+    BUILD_ENV[key] = val
+    
+def set_cmake_env(key, val):
+    global CMAKE_FLAGS
+    log.info('CMake: {} = {}'.format(key, val))
+    CMAKE_FLAGS[key] = val
+    
+def replace_var(input, varname, replacement):
+    return input.replace('%%' + varname + '%%', replacement)
+
+def replace_vars(input, pkg_cfg, var_replacements):
+    for key, val in var_replacements.items():
+        input = replace_var(input, key, val)
+    return input
+    
+def configure_distcc(cfg):
+    global BUILD_ENV
+    with log.info('Configuring distcc...'):
+        if not cfg.get('env.distcc.enabled', False):
+            log.info('distcc disabled, skipping.')
+            return
+        distcc_hosts = []
+        english_hosts = []
+        maxjobs = 0
+        canpump = False
+        for hostname, hostcfg in cfg['env']['distcc']['hosts'].items():
+            h = hostname
+            info_e = []
+            if 'max-jobs' in hostcfg:
+                njobs = hostcfg.get('max-jobs', 0)
+                if njobs > 0:
+                    h += '/' + str(njobs)
+                    info_e += ['{} max jobs'.format(njobs)]
+                    maxjobs += njobs
+            if 'opts' in hostcfg:
+                h += ',' + ','.join(hostcfg['opts'])
+                info_e += ['with options: ({})'.format(', '.join(hostcfg['opts']))]
+                # Check for lzo & cpp before permitting distcc-pump.
+                if 'lzo' in hostcfg['opts'] and 'cpp' in hostcfg['opts']:
+                    canpump = True
+            if len(info_e) > 0:
+                english_hosts += ['* {}: {}'.format(hostname, ', '.join(info_e))]
+                
+            distcc_hosts += [h]
+        if len(distcc_hosts) > 0:
+            with log.info('Compiling with {} hosts:'.format(len(distcc_hosts))):
+                for hostline in english_hosts:
+                    log.info(hostline)
+            log.info('Max jobs....: {0}'.format(maxjobs))
+            cfg['env']['make']['jobs'] = maxjobs
+            log.info('Pump enabled: {0}'.format(bool2yn(maxjobs > 0 and canpump)))
+            if maxjobs > 0 and canpump:
+                cfg['bin']['make'] = '{pump} {make}'.format(pump=cfg.get('bin.pump', 'distcc-pump'), make=cfg.get('bin.make', 'make'))
+                
+            set_build_env('DISTCC_HOSTS', ' '.join(distcc_hosts))
+                
+
+def configure_ccache(cfg):
+    global BUILD_ENV, CMAKE_FLAGS
+    with log.info('Configuring ccache...'):
+        if not cfg.get('env.ccache.enabled', False):
+            log.info('ccache disabled, skipping.')
+        
+            # Otherwise, strange things happen.
+            set_build_env('CC', BUILD_ENV['CC'] + '.real')
+            set_build_env('CXX', BUILD_ENV['CXX'] + '.real')
+        else:
+            CCACHE = cfg.get('bin.ccache', 'ccache')
+            DISTCC = cfg.get('bin.distcc', 'distcc')
+            
+            if cfg.get('env.distcc.enabled', False):
+                set_build_env('CCACHE_PREFIX', DISTCC)
+
+            # Fixes a bug where CMake sets this all incorrectly. 
+            # http://public.kitware.com/Bug/view.php?id=12274
+            set_cmake_env('CMAKE_CXX_COMPILER_ARG1', BUILD_ENV['CXX'])
+            # set_cmake_env('CMAKE_ASM_COMPILER_ARG1',BUILD_ENV['ASM'])
+            
+            set_build_env('CC', CCACHE + ' ' + BUILD_ENV['CC'])
+            set_build_env('CXX', CCACHE + ' ' + BUILD_ENV['CXX'])
+            # set_build_env('ASM',CCACHE + ' ' + BUILD_ENV['ASM'])
+
+def configure_cotire(cfg):
+    global BUILD_ENV, CMAKE_FLAGS
+    with log.info('Configuring cotire...'):
+        if not cfg.get('env.cotire.enabled', False):
+            log.info('cotire disabled, skipping.')
+        else:
+            set_build_env('CCACHE_SLOPPINESS', 'time_macros')
+            set_cmake_env('ENABLE_COTIRE', 'On')
+            if cfg.get('env.make.jobs', 1) > 1:
+                set_cmake_env('COTIRE_MAXIMUM_NUMBER_OF_UNITY_INCLUDES', cfg.get('env.make.jobs', 1))
+    
+def run_cmake(cfg, dir='.'):
+    global CMAKE_FLAGS, BUILD_ENV
+    CMAKE = cfg.get('bin.cmake', 'cmake')
+    flags = []
+    for key, value in CMAKE_FLAGS.items():
+        flags += ['-D{0}={1}'.format(key, value)]
+    with log.info('Running CMake:'):
+        for key, value in BUILD_ENV.items():
+            log.info('+{0}="{1}"'.format(key, value))
+        cmd([CMAKE] + flags + [dir], env=BUILD_ENV, critical=True, echo=True)
+        
+def cleanDir(dir):
+    for the_file in os.listdir(dir):
+        file_path = os.path.join(dir, the_file)
+        try:
+            if os.path.isfile(file_path):
+                os.unlink(file_path)
+            else:
+                shutil.rmtree(file_path)
+        except Exception, e:
+            log.error(e)
+            sys.exit(1)
+            
+def mkdirOrClear(dir):
+    if not os.path.isdir(dir):
+        log.info('Creating {}'.format(dir))
+        os.makedirs(dir)
+    else:
+        log.info('Clearing %s', dir)
+        cleanDir(dir)
+    
+def dictToTuples(inp):
+    return [(k, v) for k, v in inp.items()]
+
+def handleIf(operators, pkg_cfg, var_replacements):
+    if len(operators):
+        for expr in operators:
+            (operator, args) = dictToTuples(expr)[0]
+            if isinstance(args, str):
+                args = args.split(' ')
+            args = [replace_vars(arg, pkg_cfg, var_replacements) for arg in args]
+            if operator == 'file-exists':
+                if not os.path.exists(args[0]): return False
+            else:
+                log.warn('Invalid operator %s', operator)
+        return True
+    else:
+        return False
+    
+def RunCommandsIn(commandlist, pkg_cfg, var_replacements):
+    if len(commandlist)==0: return
+    with log:
+        for package_cmd in commandlist:
+            # Conditionals
+            if isinstance(package_cmd, dict):
+                result = None
+                if 'if' in package_cmd: 
+                    result = handleIf(package_cmd['if'], pkg_cfg, var_replacements)
+                if 'if-not' in package_cmd: 
+                    result = not handleIf(package_cmd['if-not'], pkg_cfg, var_replacements)
+                if result is None: continue
+                RunCommandsIn(package_cmd.get('then' if result else 'else',[]), pkg_cfg, var_replacements)
+                continue
+            
+            # Strings -> lists
+            if isinstance(package_cmd, str):
+                package_cmd = package_cmd.split(' ')
+                    
+            ccmd = [replace_vars(fragment, pkg_cfg, var_replacements) for fragment in package_cmd]
+            command = ccmd[0]
+            cmd(ccmd, echo=True, critical=True)
+    
+def aggregate(cfg, dir):
+    job_cfg = yaml.load(os.path.join(dir, 'package.yml'))
+    
+if __name__ == '__main__':
+    import argparse
+        
+    logging.basicConfig(
+        format='%(asctime)s [%(levelname)-8s]: %(message)s',
+        datefmt='%m/%d/%Y %I:%M:%S %p',
+        level=logging.INFO)
+        # filename='logs/main.log',
+        # filemode='w')
+    
+    # define a Handler which writes INFO messages or higher to the sys.stderr
+    # console = logging.StreamHandler()
+    # console.setLevel(logging.INFO)
+    # logging.getLogger('').addHandler(console)
+    
+    log = IndentLogger()
+    
+    d_cfg = {
+             'env': {
+                'distcc': {
+                    'enabled': False,
+                    'hosts': {
+                        'localhost': {
+                            'max-jobs':5,
+                            'opts':['lzo', 'cpp']
+                        },
+                        '192.168.9.139': {
+                            'max-jobs':1,
+                            'opts':['lzo', 'cpp']
+                        },
+                    }
+                },
+                'ccache': {
+                    'enabled': False
+                },
+                'cotire': {
+                    'enabled': False
+                },
+                'make': {
+                    'jobs': 5,
+                    'flags':[]
+                },
+                'packaging': {
+                    'enabled': True,
+                    'repo-deploy':True,
+                    'maintainer':'Rob Nelson <nexisentertainment@gmail.com>',
+                    'packages':{
+                        'debian/jessie': True,
+                        'debian/wheezy': False
+                    },
+                }
+            },
+            'bin':{
+                'make':'make',
+                'pump':'distcc-pump',
+                'ccache':'ccache',
+                'asm':'cc',
+                'cc':'gcc-4.8',
+                'cxx':'g++-4.8'
+            },
+            'paths':{
+                'source':'../hhvm',
+                'install': '/tmp/hhvm-install',
+                'package': '/tmp/hhvm-package'
+            }
+        }
+    cfg = Config('config.yml', d_cfg)
+    
+    argp = argparse.ArgumentParser(prog='hhvm-build', description='Build stuff')
+    
+    argp.add_argument('distro', type=str, help='Linux Distribution (deb, etc)')
+    argp.add_argument('release', type=str, help='OS Release codename (precise, etc)')
+    argp.add_argument('version', type=str, help='HHVM Version')
+    
+    argp.add_argument('hhvm_job', type=str, help='HHVM Jenkins workspace')
+    # argp.add_argument('--ext', nargs='*' , help='HHVM extension workspace', default=[])
+    
+    argp.add_argument('--disable-ccache', action='store_true')
+    argp.add_argument('--disable-distcc', action='store_true')
+    argp.add_argument('--disable-cotire', action='store_true')
+    argp.add_argument('--disable-packaging', action='store_true')
+    argp.add_argument('--disable-repo-deploy', action='store_true')
+    
+    args = argp.parse_args()
+    
+    if args.disable_ccache: cfg['env']['ccache']['enable'] = False
+    if args.disable_distcc: cfg['env']['distcc']['enable'] = False
+    if args.disable_cotire: cfg['env']['cotire']['enable'] = False
+    if args.disable_packaging: cfg['env']['packaging']['enable'] = False
+    if args.disable_repo_deploy: cfg['env']['packaging']['repo-deploy'] = False
+    
+    DISTRO_NAME = args.distro
+    DISTRO_RELEASE = args.release
+    
+    HHVMBUILD_DIR = os.getcwd()
+    DISTRO_DIR = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE)
+    
+    HHVM_VERSION = args.version
+    SOURCE_DIR = args.hhvm_job
+            
+    with log.info('Compile environment:'):
+        cmd(['uname', '-a'], echo=False)
+        cmd(['lsb_release', '-a'], echo=False)
+        cmd(['git', 'log', '-n', '1', '--pretty=oneline'], echo=False)
+    
+    if not os.path.isdir(DISTRO_DIR):
+        logging.fatal('Directory {0} doesn\'t exist.'.format(DISTRO_DIR))
+        sys.exit(1)
+        
+    if SOURCE_DIR is None or not os.path.isdir(SOURCE_DIR):
+        SOURCE_DIR = os.path.abspath(cfg.get('paths.source'))
+    if not os.path.isdir(SOURCE_DIR):
+        log.info('Source code not found. SOURCE_DIR={}'.format(SOURCE_DIR))
+        sys.exit(1)
+        
+    INSTALL_DIR = os.path.abspath(cfg.get('paths.install'))
+    mkdirOrClear(INSTALL_DIR)
+        
+    PACKAGE_DIR = os.path.abspath(cfg.get('paths.package'))
+    mkdirOrClear(PACKAGE_DIR)
+        
+    NIGHTLY = False
+    DEVONLY = False
+    DEBUG = False
+    
+    version_chunks = HHVM_VERSION.split('-')
+    new_version_chunks = []
+    for i in range(len(version_chunks)):
+        chunk = version_chunks[i]
+        if i == 1 and chunk == 'nightly':
+            NIGHTLY = True
+            # new_version_chunks += [chunk]
+            continue
+        else:
+            if chunk == 'dev':
+                DEVONLY = True
+                DEBUG = True
+                continue
+            if chunk == 'dbg':
+                DEBUG = True
+                continue
+            new_version_chunks += [chunk]
+    HHVM_VERSION = '-'.join(new_version_chunks)
+    log.info('HHVM Version {} - Debug: {}, Dev: {}, Nightly: {}'.format(HHVM_VERSION, bool2yn(DEBUG), bool2yn(DEVONLY), bool2yn(NIGHTLY)))
+    
+    BUILD_ENV = {
+        'CC':  cfg.get('bin.cc', 'gcc-4.8'),
+        'CXX': cfg.get('bin.cxx', 'g++-4.8'),
+        'ASM': cfg.get('bin.asm', 'cc'),
+    
+        'CMAKE_INCLUDE_PATH':tempfile.mkstemp(),
+        'CMAKE_LIBRARY_PATH':"/usr/lib/hhvm/" ,
+        'HPHP_HOME':SOURCE_DIR
+    }
+    
+    BUILD_ENV = dict(os.environ.copy(), **BUILD_ENV)
+    
+    CMAKE_FLAGS = cfg.get('env.cmake.flags', {})
+    MAKE_FLAGS = cfg.get('env.make.flags', [])
+    
+    CMAKE_FLAGS['CMAKE_BUILD_TYPE'] = 'Debug' if DEBUG else 'Release'
+    CMAKE_FLAGS['CMAKE_INSTALL_PREFIX'] = '/usr'
+    
+    configure_ccache(cfg)
+    configure_distcc(cfg)
+    configure_cotire(cfg)
+
+    job_flag = '-j' + str(cfg.get('env.cmake.jobs', 1))
+    MAKE_FLAGS += [job_flag]
+    NIGHTLY_DATE = datetime.datetime.utcnow().strftime('%Y.%m.%d')
+    with Chdir(SOURCE_DIR) as sourcedir:
+        hhvm_bin = os.path.join(SOURCE_DIR, 'hphp/hhvm/hhvm')
+        if not os.path.isfile(hhvm_bin):
+            log.warn('hhvm binaries not found, recompiling.')
+            with log.info('Preparing to compile...'):
+                if NIGHTLY:
+                    cmd('git checkout master'.split(), critical=True)
+                    REG_VERSION = re.compile(r'([0-9.]*-dev)')
+                    version_file = ''
+                    with open('hphp/system/idl/constants.idl.json', 'r') as f:
+                        version_file = f.read()
+                    with open('hphp/system/idl/constants.idl.json', 'w') as f:
+                        f.write(REG_VERSION.sub('\1+' + NIGHTLY_DATE, version_file))
+                    log.info('Version set.')
+                else:
+                    cmd(['git', 'checkout', 'HHVM-' + HHVM_VERSION], critical=True)
+                
+                cmd('git submodule update --init --recursive'.split(' '), critical=True)
+                cmd('git clean -fdx'.split(' '))
+            
+            run_cmake(cfg)
+            cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, env=BUILD_ENV, critical=True)
+        
+        if not os.path.isfile(hhvm_bin):
+            log.critical(hhvm_bin + " doesn't exist")
+            sys.exit(1)
+        
+    with log.info('Packaging...'):
+        if cfg.get('env.packaging.enabled', False):
+            d_pkg_cfg = {
+                'make-workspace':[],
+                'fpm': {
+                    'output-type':'deb'
+                }
+            }
+            pkg_cfg = Config(os.path.join(DISTRO_DIR, 'package.yml'), d_pkg_cfg)
+            with Chdir(SOURCE_DIR) as sourcedir:
+                cmd([cfg.get('bin.make', 'make'), 'install', 'DESTDIR=' + INSTALL_DIR], env=BUILD_ENV, critical=True)
+                pkgname = 'hhvm'
+                skeletondirname = 'skeleton'
+                if DEVONLY:
+                    pkgname += '-dev'
+                    skeletondirname += '-dev'
+                if NIGHTLY:
+                    pkgname += '-nightly'
+                if DEBUG and not DEVONLY:
+                    pkgname += '-dbg'
+                    
+                if NIGHTLY:
+                    version = NIGHTLY_DATE + '~' + ('debug' if DEBUG else 'release')
+                    if DEBUG:
+                        conflicts = replaces = ['hhvm', 'hhvm-nightly', 'hhvm-dbg']
+                    else:
+                        conflicts = replaces = ['hhvm', 'hhvm-dbg']
+                else:
+                    if DEBUG: conflicts = replaces = ['hhvm']
+                    version = HHVM_VERSION + '~' + ('debug' if DEBUG else 'release')
+            
+            if len(pkg_cfg.get('make-workspace', [])) > 0 :
+                log.info('Doing stuff to workspace...')
+                RunCommandsIn(pkg_cfg.get('make-workspace', []), pkg_cfg, {
+                    'SOURCE_DIR':SOURCE_DIR,
+                    'DISTRO_DIR':DISTRO_DIR,
+                    'INSTALL_DIR':INSTALL_DIR,
+                    'PACKAGE_DIR':PACKAGE_DIR,
+                    'DISTRO_DIR':DISTRO_DIR,
+                    'SKELETON_DIR':os.path.join(HHVMBUILD_DIR, DISTRO_NAME, skeletondirname),
+                    'HHVMBUILD_DIR':HHVMBUILD_DIR
+                });
+                    
+            
+            package = ''
+            with log.info('Running FPM...'):
+                fpm = FPM()
+                fpm.input_type = 'dir'
+                fpm.output_type = 'deb'
+                fpm.LoadControl(DISTRO_DIR + '/DEBIAN/control')
+                package = os.path.join(HHVMBUILD_DIR, pkgname + '_' + version + '-' + fpm.architecture + '.deb')
+                fpm.version = version
+                fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
+                fpm.name = pkgname
+                fpm.provides = 'hhvm'
+                fpm.conflicts = conflicts
+                fpm.replaces = replaces
+                fpm.inputs = [PACKAGE_DIR]
+                fpm.Build(package)
+            
+            if cfg.get('env.packaging.repo-deploy',True):
+                with log.info('Adding package to repo...'):
+                    cmd(['freight-add', package, 'apt/' + DISTRO_RELEASE], critical=True)
+                    
+                with log.info('Generating repository cache...'):
+                    cmd(['freight-cache'])

@@ -1,0 +1,23 @@
+make-workspace:
+  - cp -R %%HHVMBUILD_DIR%%/*.md %%PACKAGE_DIR%%/
+  #- cp -R %%DISTRO_DIR%%/DEBIAN %%PACKAGE_DIR%%/
+  - cp -R %%DISTRO_DIR%%/usr %%PACKAGE_DIR%%/
+  - echo Checking for %%PACKAGE_DIR%%/deps...
+  - if: 
+    - file-exists: '%%PACKAGE_DIR%%/deps'
+    then:
+      - rm %%PACKAGE_DIR%%/deps
+  - mkdir -p %%PACKAGE_DIR%%/usr/bin/
+  - cp %%SOURCE_DIR%%/hphp/hhvm/hhvm %%PACKAGE_DIR%%/usr/bin/
+  - chmod 755 %%PACKAGE_DIR%%/usr/bin/hhvm
+  - echo Checking for hh_server...
+  - if: 
+    - file-exists: '%%SOURCE_DIR%%/hphp/hack/bin/hh_server'
+    then:
+      - cp %%SOURCE_DIR%%/hphp/hack/bin/hh_client %%PACKAGE_DIR%%/usr/bin/
+      - cp %%SOURCE_DIR%%/hphp/hack/bin/hh_server %%PACKAGE_DIR%%/usr/bin/
+      - chmod 755 %%PACKAGE_DIR%%/usr/bin/hh_client
+      - chmod 755 %%PACKAGE_DIR%%/usr/bin/hh_server
+  - mkdir -p %%PACKAGE_DIR%%/usr/share/hhvm/hack/
+  - cp -r %%SOURCE_DIR%%/hphp/hack/editor-plugins/emacs %%PACKAGE_DIR%%/usr/share/hhvm/hack/
+  - cp -r %%SOURCE_DIR%%/hphp/hack/editor-plugins/vim %%PACKAGE_DIR%%/usr/share/hhvm/hack/
