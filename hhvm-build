@@ -121,6 +121,7 @@ class FPM(object):
             
         cmdline += ['-s', self.input_type]
         cmdline += ['-t', self.output_type]
+        cmdline += ['-C', self.workdir]
         cmdline += ['-p', target_file]
         cmdline += ['-n', self.name]
         cmdline += ['-v', self.version]
@@ -250,21 +251,30 @@ def bool2yn(b):
     return 'Y' if b else 'N'
 
 def cmd(command, echo=False, env=os.environ, show_output=True, critical=False):
-    new_args=[command[0]]
+    # Shell-style globbin'.
+    new_args = [command[0]]
     for arg in command[1:]:
         if '*' in arg or '?' in arg:
             new_args += glob.glob(arg)
         else:
             new_args += [arg]
-    command=new_args
+            
+    # Fix a bug where env vars get some weird types.
+    new_env = {}
+    for k,v in env.items():
+        k=str(k)
+        v=str(v)
+        new_env[k]=v
+        
+    command = new_args
     if echo:
         log.info('$ ' + ' '.join(command))
         
     if show_output:
-        return subprocess.call(command, shell=False) != 0
+        return subprocess.call(command, env=new_env, shell=False) != 0
     output = ''
     try:
-        output = subprocess.check_output(command, stderr=subprocess.STDOUT)
+        output = subprocess.check_output(command, env=new_env, stderr=subprocess.STDOUT)
         return True
     except Exception as e:
         log.error(repr(command))
@@ -420,7 +430,7 @@ def handleIf(operators, pkg_cfg, var_replacements):
         return False
     
 def RunCommandsIn(commandlist, pkg_cfg, var_replacements):
-    if len(commandlist)==0: return
+    if len(commandlist) == 0: return
     with log:
         for package_cmd in commandlist:
             # Conditionals
@@ -431,7 +441,7 @@ def RunCommandsIn(commandlist, pkg_cfg, var_replacements):
                 if 'if-not' in package_cmd: 
                     result = not handleIf(package_cmd['if-not'], pkg_cfg, var_replacements)
                 if result is None: continue
-                RunCommandsIn(package_cmd.get('then' if result else 'else',[]), pkg_cfg, var_replacements)
+                RunCommandsIn(package_cmd.get('then' if result else 'else', []), pkg_cfg, var_replacements)
                 continue
             
             # Strings -> lists
@@ -511,6 +521,7 @@ if __name__ == '__main__':
                 'package': '/tmp/hhvm-package'
             }
         }
+    
     cfg = Config('config.yml', d_cfg)
     
     argp = argparse.ArgumentParser(prog='hhvm-build', description='Build stuff')
@@ -700,9 +711,10 @@ if __name__ == '__main__':
                 fpm.conflicts = conflicts
                 fpm.replaces = replaces
                 fpm.inputs = [PACKAGE_DIR]
+                fpm.workdir = PACKAGE_DIR
                 fpm.Build(package)
             
-            if cfg.get('env.packaging.repo-deploy',True):
+            if cfg.get('env.packaging.repo-deploy', True):
                 with log.info('Adding package to repo...'):
                     cmd(['freight-add', package, 'apt/' + DISTRO_RELEASE], critical=True)
                     
