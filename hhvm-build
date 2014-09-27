@@ -127,7 +127,7 @@ def handleIf(operators, pkg_cfg, var_replacements):
             (operator, args) = dictToTuples(expr)[0]
             if isinstance(args, str):
                 args = args.split(' ')
-            args = [replace_vars(arg, pkg_cfg, var_replacements) for arg in args]
+            args = [replace_vars(arg, var_replacements) for arg in args]
             if operator == 'file-exists':
                 if not os.path.exists(args[0]): return False
             else:
@@ -155,7 +155,7 @@ def RunCommandsIn(commandlist, pkg_cfg, var_replacements):
             if isinstance(package_cmd, str):
                 package_cmd = package_cmd.split(' ')
                     
-            ccmd = [replace_vars(fragment, pkg_cfg, var_replacements) for fragment in package_cmd]
+            ccmd = [replace_vars(fragment, var_replacements) for fragment in package_cmd]
             command = ccmd[0]
             cmd(ccmd, echo=True, critical=True)
     
@@ -165,19 +165,19 @@ def aggregate(cfg, dir):
 if __name__ == '__main__':
     import argparse
         
-    logging.basicConfig(
-        format='%(asctime)s [%(levelname)-8s]: %(message)s',
-        datefmt='%m/%d/%Y %I:%M:%S %p',
-        level=logging.INFO)
-        # filename='logs/main.log',
-        # filemode='w')
+    #logging.basicConfig(
+    #    format='%(asctime)s [%(levelname)-8s]: %(message)s',
+    #    datefmt='%m/%d/%Y %I:%M:%S %p',
+    #    level=logging.INFO)
+    #    # filename='logs/main.log',
+    #    # filemode='w')
     
     # define a Handler which writes INFO messages or higher to the sys.stderr
     # console = logging.StreamHandler()
     # console.setLevel(logging.INFO)
     # logging.getLogger('').addHandler(console)
     
-    log = IndentLogger()
+    #log = IndentLogger()
     
     d_cfg = {
              'env': {
@@ -334,6 +334,8 @@ if __name__ == '__main__':
     job_flag = '-j' + str(cfg.get('env.cmake.jobs', 1))
     MAKE_FLAGS += [job_flag]
     NIGHTLY_DATE = datetime.datetime.utcnow().strftime('%Y.%m.%d')
+    iteration = int(os.environ.get('BUILD_NUMBER','1'))
+    NIGHTLY_DATE += '.{:02d}'.format(iteration)
     with Chdir(SOURCE_DIR) as sourcedir:
         hhvm_bin = os.path.join(SOURCE_DIR, 'hphp/hhvm/hhvm')
         if not os.path.isfile(hhvm_bin):
@@ -369,6 +371,8 @@ if __name__ == '__main__':
                     'output-type':'deb'
                 }
             }
+            
+            
             pkg_cfg = Config(os.path.join(DISTRO_DIR, 'package.yml'), d_pkg_cfg)
             with Chdir(SOURCE_DIR) as sourcedir:
                 cmd([cfg.get('bin.make', 'make'), 'install', 'DESTDIR=' + INSTALL_DIR], env=BUILD_ENV, critical=True)
@@ -406,25 +410,28 @@ if __name__ == '__main__':
                     
             
             package = ''
-            with log.info('Running FPM...'):
-                fpm = FPM()
-                fpm.input_type = 'dir'
-                fpm.output_type = 'deb'
-                fpm.LoadControl(DISTRO_DIR + '/DEBIAN/control')
-                package = os.path.join(HHVMBUILD_DIR, pkgname + '_' + version + '-' + fpm.architecture + '.deb')
-                fpm.version = version
-                fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
-                fpm.name = pkgname
-                fpm.provides = 'hhvm'
-                fpm.conflicts = conflicts
-                fpm.replaces = replaces
-                fpm.inputs = [PACKAGE_DIR]
-                fpm.workdir = PACKAGE_DIR
-                fpm.Build(package)
+                
+            with Chdir(PACKAGE_DIR):
+                with log.info('Running FPM...'):
+                    fpm = FPM()
+                    fpm.input_type = 'dir'
+                    fpm.output_type = 'deb'
+                    fpm.LoadControl(DISTRO_DIR + '/DEBIAN/control')
+                    package = os.path.join(HHVMBUILD_DIR, pkgname + '_' + version + '-' + fpm.architecture + '.deb')
+                    fpm.version = version
+                    fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
+                    fpm.name = pkgname
+                    fpm.provides = ['hhvm']
+                    fpm.conflicts = conflicts
+                    fpm.iteration = iteration
+                    fpm.replaces = replaces
+                    fpm.inputs = ['.']
+                    fpm.workdir = PACKAGE_DIR
+                    fpm.Build(package)
             
             if cfg.get('env.packaging.repo-deploy', True):
                 with log.info('Adding package to repo...'):
                     cmd(['freight-add', package, 'apt/' + DISTRO_RELEASE], critical=True)
                     
                 with log.info('Generating repository cache...'):
-                    cmd(['freight-cache'])
+                    cmd(['freight-cache','-p','/root/.gpass'])
