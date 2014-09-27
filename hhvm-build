@@ -356,7 +356,7 @@ if __name__ == '__main__':
                 cmd('git submodule update --init --recursive'.split(' '), critical=True)
                 cmd('git clean -fdx'.split(' '))
             
-            cmake.run(cfg, env=BUILD_ENV)
+            cmake.run(cfg.get('bin.cmake', 'cmake'), env=BUILD_ENV)
             cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, env=BUILD_ENV, critical=True)
         
         if not os.path.isfile(hhvm_bin):
