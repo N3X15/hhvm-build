@@ -6,301 +6,19 @@ run with ./hhvm-build debian jessie 3.3
 '''
 import os, sys, yaml, tempfile, re, shutil, logging, subprocess, datetime, glob
 
-class Config(object):
-    def __init__(self, filename, default={}):
-        log.info("Loading {}...".format(filename))
-        with log:
-            self.cfg = default
-            if not os.path.isfile(filename):
-                log.warn('File not found, loading defaults.')
-                with open(filename, 'w') as f:
-                    yaml.dump(self.cfg, f, default_flow_style=False)
-                
-            with open(filename, 'r') as f:
-                self.cfg = yaml.load(f)
-        
-    def __getitem__(self, key):
-        return self.cfg.__getitem__(key)
-    
-    def __setitem__(self, key, value):
-        return self.cfg.__setitem__(key)
-    
-    def get(self, key, default=None):
-        parts = key.split('.')
-        try:
-            value = self.cfg[parts[0]]
-            if len(parts) == 1:
-                return value
-            for part in parts[1:]:
-                value = value[part]
-            return value
-        except KeyError:
-            return default
-        
-class Chdir(object):
-    def __init__(self, newdir):
-        self.pwd = os.path.abspath(os.getcwd())
-        self.chdir = newdir
-    
-    def __enter__(self):
-        try:
-            os.chdir(self.chdir)
-            log.info('cd ' + self.chdir)
-        except:
-            log.critical('Failed to chdir to {}.'.format(self.chdir))
-            sys.exit(1)
-        return self
-    
-    def __exit__(self, type, value, traceback):
-        try:
-            os.chdir(self.pwd)
-            log.info('cd ' + self.pwd)
-        except:
-            log.critical('Failed to chdir to {}.'.format(self.pwd))
-            sys.exit(1)
-        return False
-    
-class FPM(object):
-    def __init__(self):
-        self.name = ''
-        self.version = ''
-        self.input_type = ''
-        self.output_type = ''
-        self.workdir = ''
-        
-        self.dependencies = []
-        self.conflicts = []
-        self.replaces = []
-        self.provides = []
-        self.inputs = []
-        
-        self.filebinds = []
-    
-    def LoadControl(self, filename):
-        '''
-        Load Debian CONTROL file.
-        '''
-        with open(filename, 'r') as f:
-            for line in f:
-                directive, content = line.split(':', 1)
-                func = getattr(self, '_handle_' + directive.lower())
-                if func: func(content.strip(), line)
-    
-    def _handle_package(self, content, line):
-        self.name = content
-        
-    def _handle_version(self, content, line):
-        self.version = content
-        
-    def _handle_section(self, content, line):
-        return  # web
-        
-    def _handle_priority(self, content, line):
-        return  # optional
-    
-    def _handle_architecture(self, content, line):
-        self.architecture = content
-        
-    def _handle_essential(self, content, line):
-        return  # yes/no
-    
-    def _handle_depends(self, content, line):
-        self.dependencies = [x.strip() for x in content.split(',')]
-        
-    def _handle_maintainer(self, content, line):
-        self.maintainer = content
-        
-    def _handle_description(self, content, line):
-        self.description = content
-        
-    def AddDepend(self, depend):
-        self.dependencies += [depend]
-        
-    def Build(self, target_file, fpm='fpm'):
-        cmdline = [fpm]
-            
-        cmdline += ['-s', self.input_type]
-        cmdline += ['-t', self.output_type]
-        cmdline += ['-C', self.workdir]
-        cmdline += ['-p', target_file]
-        cmdline += ['-n', self.name]
-        cmdline += ['-v', self.version]
-        cmdline += ['-a', self.architecture]
-        
-        if self.maintainer != '':cmdline += ['-m', self.maintainer]
-        if self.description != '':cmdline += ['--description', self.description]
-        
-        for dep in self.dependencies:
-            cmdline += ['-d', dep]
-            
-        for provided in self.provides:
-            cmdline += ['--provides', provided]
-            
-        for conflict in self.conflicts:
-            cmdline += ['--conflicts', conflict]
-            
-        for replacee in self.replaces:
-            cmdline += ['--replaces', replacee]
-            
-        for inp in self.inputs:
-            cmdline += [inp]
-            
-        cmd(cmdline, critical=True, echo=True)
-        
-class IndentLogger(object):
-    '''
-    Indents stuff.
-    '''
-    def __init__(self):
-        self.indent = 0
-        self.log = logging.getLogger()
-        
-    def __enter__(self):
-        self.indent += 1
-        return self
-    
-    def __exit__(self, type, value, traceback):
-        self.indent -= 1
-        return False
-    
-    def debug(self, msg, *args, **kwargs):
-        """
-        Log 'msg % args' with severity 'DEBUG'.
+script_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(script_dir, 'lib', 'buildtools'))
 
-        To pass exception information, use the keyword argument exc_info with
-        a true value, e.g.
-
-        logger.debug("Houston, we have a %s", "thorny problem", exc_info=1)
-        """
-        if self.log.isEnabledFor(logging.DEBUG):
-            self._log(logging.DEBUG, msg, args, **kwargs)
-        return self
-
-    def info(self, msg, *args, **kwargs):
-        """
-        Log 'msg % args' with severity 'INFO'.
-
-        To pass exception information, use the keyword argument exc_info with
-        a true value, e.g.
-
-        logger.info("Houston, we have a %s", "interesting problem", exc_info=1)
-        """
-        if self.log.isEnabledFor(logging.INFO):
-            self._log(logging.INFO, msg, args, **kwargs)
-        return self
-
-    def warning(self, msg, *args, **kwargs):
-        """
-        Log 'msg % args' with severity 'WARNING'.
-
-        To pass exception information, use the keyword argument exc_info with
-        a true value, e.g.
-
-        logger.warning("Houston, we have a %s", "bit of a problem", exc_info=1)
-        """
-        if self.log.isEnabledFor(logging.WARNING):
-            self._log(logging.WARNING, msg, args, **kwargs)
-        return self
-
-    warn = warning
-
-    def error(self, msg, *args, **kwargs):
-        """
-        Log 'msg % args' with severity 'ERROR'.
-
-        To pass exception information, use the keyword argument exc_info with
-        a true value, e.g.
-
-        logger.error("Houston, we have a %s", "major problem", exc_info=1)
-        """
-        if self.log.isEnabledFor(logging.ERROR):
-            self._log(logging.ERROR, msg, args, **kwargs)
-        return self
-
-    def exception(self, msg, *args, **kwargs):
-        """
-        Convenience method for logging an ERROR with exception information.
-        """
-        kwargs['exc_info'] = 1
-        self.error(msg, *args, **kwargs)
-        return self
-
-    def critical(self, msg, *args, **kwargs):
-        """
-        Log 'msg % args' with severity 'CRITICAL'.
-
-        To pass exception information, use the keyword argument exc_info with
-        a true value, e.g.
-
-        logger.critical("Houston, we have a %s", "major disaster", exc_info=1)
-        """
-        if self.log.isEnabledFor(logging.CRITICAL):
-            self._log(logging.CRITICAL, msg, args, **kwargs)
-        return self
-            
-    def _log(self, level, msg, args, exc_info=None, extra=None):
-        if isinstance(msg, str): 
-            indent = self.indent * '  '
-            self.log._log(level, indent + msg, args, exc_info, extra)
-        else:
-            self.log._log(level, msg, args, exc_info, extra)
-        
-log = None
+from buildtools import *
+from buildtools.wrapper import CMake, FPM
 
 def bool2yn(b):
     return 'Y' if b else 'N'
-
-def cmd(command, echo=False, env=os.environ, show_output=True, critical=False):
-    # Shell-style globbin'.
-    new_args = [command[0]]
-    for arg in command[1:]:
-        if '*' in arg or '?' in arg:
-            new_args += glob.glob(arg)
-        else:
-            new_args += [arg]
-            
-    # Fix a bug where env vars get some weird types.
-    new_env = {}
-    for k,v in env.items():
-        k=str(k)
-        v=str(v)
-        new_env[k]=v
-        
-    command = new_args
-    if echo:
-        log.info('$ ' + ' '.join(command))
-        
-    if show_output:
-        return subprocess.call(command, env=new_env, shell=False) != 0
-    output = ''
-    try:
-        output = subprocess.check_output(command, env=new_env, stderr=subprocess.STDOUT)
-        return True
-    except Exception as e:
-        log.error(repr(command))
-        log.error(output)
-        log.error(e)
-        if critical:
-            sys.exit(1)
-        return False
 
 def set_build_env(key, val):
     global BUILD_ENV
     log.info('Build env: {} = {}'.format(key, val))
     BUILD_ENV[key] = val
-    
-def set_cmake_env(key, val):
-    global CMAKE_FLAGS
-    log.info('CMake: {} = {}'.format(key, val))
-    CMAKE_FLAGS[key] = val
-    
-def replace_var(input, varname, replacement):
-    return input.replace('%%' + varname + '%%', replacement)
-
-def replace_vars(input, pkg_cfg, var_replacements):
-    for key, val in var_replacements.items():
-        input = replace_var(input, key, val)
-    return input
     
 def configure_distcc(cfg):
     global BUILD_ENV
@@ -345,7 +63,7 @@ def configure_distcc(cfg):
                 
 
 def configure_ccache(cfg):
-    global BUILD_ENV, CMAKE_FLAGS
+    global BUILD_ENV, cmake
     with log.info('Configuring ccache...'):
         if not cfg.get('env.ccache.enabled', False):
             log.info('ccache disabled, skipping.')
@@ -362,7 +80,7 @@ def configure_ccache(cfg):
 
             # Fixes a bug where CMake sets this all incorrectly. 
             # http://public.kitware.com/Bug/view.php?id=12274
-            set_cmake_env('CMAKE_CXX_COMPILER_ARG1', BUILD_ENV['CXX'])
+            cmake.setFlag('CMAKE_CXX_COMPILER_ARG1', BUILD_ENV['CXX'])
             # set_cmake_env('CMAKE_ASM_COMPILER_ARG1',BUILD_ENV['ASM'])
             
             set_build_env('CC', CCACHE + ' ' + BUILD_ENV['CC'])
@@ -370,26 +88,15 @@ def configure_ccache(cfg):
             # set_build_env('ASM',CCACHE + ' ' + BUILD_ENV['ASM'])
 
 def configure_cotire(cfg):
-    global BUILD_ENV, CMAKE_FLAGS
+    global BUILD_ENV, cmake
     with log.info('Configuring cotire...'):
         if not cfg.get('env.cotire.enabled', False):
             log.info('cotire disabled, skipping.')
         else:
             set_build_env('CCACHE_SLOPPINESS', 'time_macros')
-            set_cmake_env('ENABLE_COTIRE', 'On')
+            cmake.setFlag('ENABLE_COTIRE', 'On')
             if cfg.get('env.make.jobs', 1) > 1:
-                set_cmake_env('COTIRE_MAXIMUM_NUMBER_OF_UNITY_INCLUDES', cfg.get('env.make.jobs', 1))
-    
-def run_cmake(cfg, dir='.'):
-    global CMAKE_FLAGS, BUILD_ENV
-    CMAKE = cfg.get('bin.cmake', 'cmake')
-    flags = []
-    for key, value in CMAKE_FLAGS.items():
-        flags += ['-D{0}={1}'.format(key, value)]
-    with log.info('Running CMake:'):
-        for key, value in BUILD_ENV.items():
-            log.info('+{0}="{1}"'.format(key, value))
-        cmd([CMAKE] + flags + [dir], env=BUILD_ENV, critical=True, echo=True)
+                cmake.setFlag('COTIRE_MAXIMUM_NUMBER_OF_UNITY_INCLUDES', cfg.get('env.make.jobs', 1))
         
 def cleanDir(dir):
     for the_file in os.listdir(dir):
@@ -613,11 +320,12 @@ if __name__ == '__main__':
     
     BUILD_ENV = dict(os.environ.copy(), **BUILD_ENV)
     
-    CMAKE_FLAGS = cfg.get('env.cmake.flags', {})
+    cmake = CMake()
+    cmake.flags = cfg.get('env.cmake.flags', {})
     MAKE_FLAGS = cfg.get('env.make.flags', [])
     
-    CMAKE_FLAGS['CMAKE_BUILD_TYPE'] = 'Debug' if DEBUG else 'Release'
-    CMAKE_FLAGS['CMAKE_INSTALL_PREFIX'] = '/usr'
+    cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug' if DEBUG else 'Release')
+    cmake.setFlag('CMAKE_INSTALL_PREFIX', '/usr')
     
     configure_ccache(cfg)
     configure_distcc(cfg)
@@ -646,7 +354,7 @@ if __name__ == '__main__':
                 cmd('git submodule update --init --recursive'.split(' '), critical=True)
                 cmd('git clean -fdx'.split(' '))
             
-            run_cmake(cfg)
+            cmake.run(cfg, env=BUILD_ENV)
             cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, env=BUILD_ENV, critical=True)
         
         if not os.path.isfile(hhvm_bin):
