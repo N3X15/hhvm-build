@@ -337,7 +337,7 @@ if __name__ == '__main__':
     MAKE_FLAGS += [job_flag]
     NIGHTLY_DATE = datetime.datetime.utcnow().strftime('%Y.%m.%d')
     iteration = int(os.environ.get('BUILD_NUMBER','1'))
-    NIGHTLY_DATE += '.{:02d}'.format(iteration)
+    #NIGHTLY_DATE += '.{:02d}'.format(iteration)
     with Chdir(SOURCE_DIR) as sourcedir:
         hhvm_bin = os.path.join(SOURCE_DIR, 'hphp/hhvm/hhvm')
         if not os.path.isfile(hhvm_bin):
