@@ -321,7 +321,9 @@ if __name__ == '__main__':
     BUILD_ENV = dict(os.environ.copy(), **BUILD_ENV)
     
     cmake = CMake()
-    cmake.flags = cfg.get('env.cmake.flags', {})
+    for k,v in cfg.get('env.cmake.flags', {}).items():
+        cmake.setFlag(k,v) 
+    
     MAKE_FLAGS = cfg.get('env.make.flags', [])
     
     cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug' if DEBUG else 'Release')
