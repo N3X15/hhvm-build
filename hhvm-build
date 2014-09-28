@@ -245,6 +245,7 @@ if __name__ == '__main__':
     argp.add_argument('--disable-cotire', action='store_true')
     argp.add_argument('--disable-packaging', action='store_true')
     argp.add_argument('--disable-repo-deploy', action='store_true')
+    argp.add_argument('--disable-git-clean', action='store_true')
     
     args = argp.parse_args()
     
@@ -356,7 +357,8 @@ if __name__ == '__main__':
                     cmd(['git', 'checkout', 'HHVM-' + HHVM_VERSION], critical=True)
                 
                 cmd('git submodule update --init --recursive'.split(' '), critical=True)
-                cmd('git clean -fdx'.split(' '))
+                if not args.disable_git_clean:
+                    cmd('git clean -fdx'.split(' '))
             
             cmake.run(cfg.get('bin.cmake', 'cmake'), env=BUILD_ENV)
             cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, env=BUILD_ENV, critical=True)
@@ -417,6 +419,7 @@ if __name__ == '__main__':
             pkgVersion=''
                 
             with Chdir(PACKAGE_DIR):
+                fpm = FPM()
                 with log.info('Figuring out version number...'):
                     while True:
                         pkgVersion=version
@@ -428,7 +431,6 @@ if __name__ == '__main__':
                         log.info('%s exists, increasing iterator and trying again.',package)
                         iterator += 1
                 with log.info('Running FPM...'):
-                    fpm = FPM()
                     fpm.input_type = 'dir'
                     fpm.output_type = 'deb'
                     fpm.LoadControl(DISTRO_DIR + '/DEBIAN/control')
