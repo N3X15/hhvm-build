@@ -399,9 +399,6 @@ if __name__ == '__main__':
                 else:
                     if DEBUG: conflicts = replaces = ['hhvm']
                     version = HHVM_VERSION + '~' + ('debug' if DEBUG else 'release')
-                    
-            if iteration > 0:
-                version += '-{}'.format(iteration)
             
             if len(pkg_cfg.get('make-workspace', [])) > 0 :
                 log.info('Doing stuff to workspace...')
