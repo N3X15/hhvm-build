@@ -158,6 +158,7 @@ if __name__ == '__main__':
     argp.add_argument('--disable-packaging', action='store_true')
     argp.add_argument('--disable-repo-deploy', action='store_true')
     argp.add_argument('--disable-git-clean', action='store_true')
+    argp.add_argument('--force-rebuild', action='store_true')
     
     args = argp.parse_args()
     
@@ -242,9 +243,9 @@ if __name__ == '__main__':
     cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug' if DEBUG else 'Release')
     cmake.setFlag('CMAKE_INSTALL_PREFIX', '/usr')
     
-    configure_ccache(cfg)
-    configure_distcc(cfg)
-    configure_cotire(cfg)
+    configure_ccache(cfg,cmake)
+    configure_distcc(cfg,cmake)
+    configure_cotire(cfg,cmake)
 
     job_flag = '-j' + str(cfg.get('env.cmake.jobs', 1))
     MAKE_FLAGS += [job_flag]
@@ -253,8 +254,10 @@ if __name__ == '__main__':
     # NIGHTLY_DATE += '.{:02d}'.format(iteration)
     with Chdir(SOURCE_DIR) as sourcedir:
         hhvm_bin = os.path.join(SOURCE_DIR, 'hphp/hhvm/hhvm')
-        if not os.path.isfile(hhvm_bin):
+        rebuild=args.force_rebuild
+        if not rebuild and not os.path.isfile(hhvm_bin):
             log.warn('hhvm binaries not found, recompiling.')
+        if rebuild:
             with log.info('Preparing to compile...'):
                 if NIGHTLY:
                     cmd('git checkout master'.split(), critical=True)
@@ -272,8 +275,8 @@ if __name__ == '__main__':
                 if not args.disable_git_clean:
                     cmd('git clean -fdx'.split(' '))
             
-            cmake.run(cfg.get('bin.cmake', 'cmake'), env=BUILD_ENV)
-            cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, env=BUILD_ENV, critical=True)
+            cmake.run(cfg.get('bin.cmake', 'cmake'))
+            cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, critical=True)
         
         if not os.path.isfile(hhvm_bin):
             log.critical(hhvm_bin + " doesn't exist")
@@ -291,7 +294,7 @@ if __name__ == '__main__':
             
             pkg_cfg = Config(os.path.join(DISTRO_DIR, 'package.yml'), d_pkg_cfg)
             with Chdir(SOURCE_DIR) as sourcedir:
-                cmd([cfg.get('bin.make', 'make'), 'install', 'DESTDIR=' + INSTALL_DIR], env=BUILD_ENV, critical=True)
+                cmd([cfg.get('bin.make', 'make'), 'install', 'DESTDIR=' + INSTALL_DIR], critical=True)
                 pkgname = 'hhvm'
                 skeletondirname = 'skeleton'
                 if DEVONLY:
