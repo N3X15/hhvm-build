@@ -43,5 +43,5 @@ paths:
   install: /tmp/hhvm-install
   package: /tmp/hhvm-package
   source: ../hhvm
-  extensions:
-    ext-
+  exts:
+    hhvm-pgsql: '../hhvm-pgsql'

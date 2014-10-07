@@ -10,93 +10,10 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(script_dir, 'lib', 'buildtools'))
 
 from buildtools import *
-from buildtools.wrapper import CMake, FPM
+from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, configure_distcc
 
 def bool2yn(b):
     return 'Y' if b else 'N'
-
-def set_build_env(key, val):
-    global BUILD_ENV
-    log.info('Build env: {} = {}'.format(key, val))
-    BUILD_ENV[key] = val
-    
-def configure_distcc(cfg):
-    global BUILD_ENV
-    with log.info('Configuring distcc...'):
-        if not cfg.get('env.distcc.enabled', False):
-            log.info('distcc disabled, skipping.')
-            return
-        distcc_hosts = []
-        english_hosts = []
-        maxjobs = 0
-        canpump = False
-        for hostname, hostcfg in cfg['env']['distcc']['hosts'].items():
-            h = hostname
-            info_e = []
-            if 'max-jobs' in hostcfg:
-                njobs = hostcfg.get('max-jobs', 0)
-                if njobs > 0:
-                    h += '/' + str(njobs)
-                    info_e += ['{} max jobs'.format(njobs)]
-                    maxjobs += njobs
-            if 'opts' in hostcfg:
-                h += ',' + ','.join(hostcfg['opts'])
-                info_e += ['with options: ({})'.format(', '.join(hostcfg['opts']))]
-                # Check for lzo & cpp before permitting distcc-pump.
-                if 'lzo' in hostcfg['opts'] and 'cpp' in hostcfg['opts']:
-                    canpump = True
-            if len(info_e) > 0:
-                english_hosts += ['* {}: {}'.format(hostname, ', '.join(info_e))]
-                
-            distcc_hosts += [h]
-        if len(distcc_hosts) > 0:
-            with log.info('Compiling with {} hosts:'.format(len(distcc_hosts))):
-                for hostline in english_hosts:
-                    log.info(hostline)
-            log.info('Max jobs....: {0}'.format(maxjobs))
-            cfg['env']['make']['jobs'] = maxjobs
-            log.info('Pump enabled: {0}'.format(bool2yn(maxjobs > 0 and canpump)))
-            if maxjobs > 0 and canpump:
-                cfg['bin']['make'] = '{pump} {make}'.format(pump=cfg.get('bin.pump', 'distcc-pump'), make=cfg.get('bin.make', 'make'))
-                
-            set_build_env('DISTCC_HOSTS', ' '.join(distcc_hosts))
-                
-
-def configure_ccache(cfg):
-    global BUILD_ENV, cmake
-    with log.info('Configuring ccache...'):
-        if not cfg.get('env.ccache.enabled', False):
-            log.info('ccache disabled, skipping.')
-        
-            # Otherwise, strange things happen.
-            set_build_env('CC', BUILD_ENV['CC'] + '.real')
-            set_build_env('CXX', BUILD_ENV['CXX'] + '.real')
-        else:
-            CCACHE = cfg.get('bin.ccache', 'ccache')
-            DISTCC = cfg.get('bin.distcc', 'distcc')
-            
-            if cfg.get('env.distcc.enabled', False):
-                set_build_env('CCACHE_PREFIX', DISTCC)
-
-            # Fixes a bug where CMake sets this all incorrectly. 
-            # http://public.kitware.com/Bug/view.php?id=12274
-            cmake.setFlag('CMAKE_CXX_COMPILER_ARG1', BUILD_ENV['CXX'])
-            # set_cmake_env('CMAKE_ASM_COMPILER_ARG1',BUILD_ENV['ASM'])
-            
-            set_build_env('CC', CCACHE + ' ' + BUILD_ENV['CC'])
-            set_build_env('CXX', CCACHE + ' ' + BUILD_ENV['CXX'])
-            # set_build_env('ASM',CCACHE + ' ' + BUILD_ENV['ASM'])
-
-def configure_cotire(cfg):
-    global BUILD_ENV, cmake
-    with log.info('Configuring cotire...'):
-        if not cfg.get('env.cotire.enabled', False):
-            log.info('cotire disabled, skipping.')
-        else:
-            set_build_env('CCACHE_SLOPPINESS', 'time_macros')
-            cmake.setFlag('ENABLE_COTIRE', 'On')
-            if cfg.get('env.make.jobs', 1) > 1:
-                cmake.setFlag('COTIRE_MAXIMUM_NUMBER_OF_UNITY_INCLUDES', cfg.get('env.make.jobs', 1))
         
 def cleanDir(dir):
     for the_file in os.listdir(dir):
@@ -183,16 +100,7 @@ if __name__ == '__main__':
              'env': {
                 'distcc': {
                     'enabled': False,
-                    'hosts': {
-                        'localhost': {
-                            'max-jobs':5,
-                            'opts':['lzo', 'cpp']
-                        },
-                        '192.168.9.139': {
-                            'max-jobs':1,
-                            'opts':['lzo', 'cpp']
-                        },
-                    }
+                    'hosts': {}
                 },
                 'ccache': {
                     'enabled': False
@@ -225,13 +133,15 @@ if __name__ == '__main__':
             'paths':{
                 'source':'../hhvm',
                 'install': '/tmp/hhvm-install',
-                'package': '/tmp/hhvm-package'
+                'package': '/tmp/hhvm-package',
+                'exts':{
+                    'hhvm-pgsql' : '../hhvm-pgsql'
+                },
             }
         }
     
-    cfg = Config('config.yml', d_cfg)
     
-    argp = argparse.ArgumentParser(prog='hhvm-build', description='Build stuff')
+    argp = argparse.ArgumentParser(prog='hhvm-build', description='Build HHVM')
     
     argp.add_argument('distro', type=str, help='Linux Distribution (deb, etc)')
     argp.add_argument('release', type=str, help='OS Release codename (precise, etc)')
@@ -239,6 +149,8 @@ if __name__ == '__main__':
     
     argp.add_argument('hhvm_job', type=str, help='HHVM Jenkins workspace')
     # argp.add_argument('--ext', nargs='*' , help='HHVM extension workspace', default=[])
+    
+    argp.add_argument('-c','--config', type=str, default='config.yml', help='YAML file to read configuration from.')
     
     argp.add_argument('--disable-ccache', action='store_true')
     argp.add_argument('--disable-distcc', action='store_true')
@@ -248,6 +160,8 @@ if __name__ == '__main__':
     argp.add_argument('--disable-git-clean', action='store_true')
     
     args = argp.parse_args()
+    
+    cfg = Config(args.config, d_cfg)
     
     if args.disable_ccache: cfg['env']['ccache']['enable'] = False
     if args.disable_distcc: cfg['env']['distcc']['enable'] = False
@@ -309,7 +223,7 @@ if __name__ == '__main__':
     HHVM_VERSION = '-'.join(new_version_chunks)
     log.info('HHVM Version {} - Debug: {}, Dev: {}, Nightly: {}'.format(HHVM_VERSION, bool2yn(DEBUG), bool2yn(DEVONLY), bool2yn(NIGHTLY)))
     
-    BUILD_ENV = {
+    ENV.merge({
         'CC':  cfg.get('bin.cc', 'gcc-4.8'),
         'CXX': cfg.get('bin.cxx', 'g++-4.8'),
         'ASM': cfg.get('bin.asm', 'cc'),
@@ -317,9 +231,7 @@ if __name__ == '__main__':
         'CMAKE_INCLUDE_PATH':tempfile.mkstemp(),
         'CMAKE_LIBRARY_PATH':"/usr/lib/hhvm/" ,
         'HPHP_HOME':SOURCE_DIR
-    }
-    
-    BUILD_ENV = dict(os.environ.copy(), **BUILD_ENV)
+    })
     
     cmake = CMake()
     for k, v in cfg.get('env.cmake.flags', {}).items():
@@ -429,7 +341,7 @@ if __name__ == '__main__':
                         package = os.path.join(HHVMBUILD_DIR, '{name}_{version}.{arch}.deb'.format(name=pkgname, version=pkgVersion, arch=fpm.architecture))
                         if not os.path.isfile(package):
                             break
-                        log.info('%s exists, increasing iterator and trying again.', package)
+                        log.warn('%s exists, increasing iterator and trying again.', package)
                         iterator += 1
                 with log.info('Running FPM...'):
                     fpm.version = version
@@ -448,4 +360,4 @@ if __name__ == '__main__':
                     cmd(['freight-add', package, 'apt/' + DISTRO_RELEASE], critical=True)
                     
                 with log.info('Generating repository cache...'):
-                    cmd(['freight-cache', '-p', '/root/.gpass'])
+                    cmd(['freight-cache', '-p', '~/.gpass'])
