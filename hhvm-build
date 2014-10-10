@@ -177,11 +177,6 @@ if __name__ == '__main__':
     
     HHVM_VERSION = args.version
     SOURCE_DIR = args.hhvm_job
-            
-    with log.info('Compile environment:'):
-        cmd(['uname', '-a'], echo=False)
-        cmd(['lsb_release', '-a'], echo=False)
-        cmd(['git', 'log', '-n', '1', '--pretty=oneline'], echo=False)
     
     if not os.path.isdir(DISTRO_DIR):
         logging.fatal('Directory {0} doesn\'t exist.'.format(DISTRO_DIR))
@@ -189,6 +184,7 @@ if __name__ == '__main__':
         
     if SOURCE_DIR is None or not os.path.isdir(SOURCE_DIR):
         SOURCE_DIR = os.path.abspath(cfg.get('paths.source'))
+        
     if not os.path.isdir(SOURCE_DIR):
         log.info('Source code not found. SOURCE_DIR={}'.format(SOURCE_DIR))
         sys.exit(1)
@@ -252,6 +248,11 @@ if __name__ == '__main__':
     iteration = int(os.environ.get('BUILD_NUMBER', '1'))
     # NIGHTLY_DATE += '.{:02d}'.format(iteration)
     with Chdir(SOURCE_DIR) as sourcedir:
+        with log.info('Compile environment:'):
+            cmd(['uname', '-a'], echo=False)
+            cmd(['lsb_release', '-a'], echo=False)
+            cmd(['git', 'log', '-n', '1', '--pretty=oneline'], echo=False)
+            
         hhvm_bin = os.path.join(SOURCE_DIR, 'hphp/hhvm/hhvm')
         if not os.path.isfile(hhvm_bin):
             log.warn('hhvm binaries not found, recompiling.')
@@ -267,13 +268,17 @@ if __name__ == '__main__':
                     log.info('Version set.')
                 else:
                     cmd(['git', 'checkout', 'HHVM-' + HHVM_VERSION], critical=True)
-                
-                cmd('git submodule update --init --recursive'.split(' '), critical=True)
+                    
                 if not args.disable_git_clean:
                     cmd('git clean -fdx'.split(' '))
+                
+                cmd('git submodule update --init --recursive'.split(' '), critical=True)
             
-            cmake.run(cfg.get('bin.cmake', 'cmake'), env=BUILD_ENV)
-            cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, env=BUILD_ENV, critical=True)
+            if not cmake.run(cfg.get('bin.cmake', 'cmake')):
+                sys.exit(1)
+                
+            if not cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, critical=True, echo=True):
+                sys.exit(1)
         
         if not os.path.isfile(hhvm_bin):
             log.critical(hhvm_bin + " doesn't exist")
@@ -291,7 +296,7 @@ if __name__ == '__main__':
             
             pkg_cfg = Config(os.path.join(DISTRO_DIR, 'package.yml'), d_pkg_cfg)
             with Chdir(SOURCE_DIR) as sourcedir:
-                cmd([cfg.get('bin.make', 'make'), 'install', 'DESTDIR=' + INSTALL_DIR], env=BUILD_ENV, critical=True)
+                cmd([cfg.get('bin.make', 'make'), 'install', 'DESTDIR=' + INSTALL_DIR], critical=True)
                 pkgname = 'hhvm'
                 skeletondirname = 'skeleton'
                 if DEVONLY:
