@@ -261,7 +261,7 @@ if __name__ == '__main__':
         if rebuild:
             with log.info('Preparing to compile...'):
                 if NIGHTLY:
-                    cmd('git checkout master'.split(), critical=True)
+                    cmd('git checkout origin/master'.split(), critical=True)
                     REG_VERSION = re.compile(r'([0-9.]*-dev)')
                     version_file = ''
                     with open('hphp/system/idl/constants.idl.json', 'r') as f:
