@@ -158,6 +158,7 @@ if __name__ == '__main__':
     argp.add_argument('--disable-packaging', action='store_true')
     argp.add_argument('--disable-repo-deploy', action='store_true')
     argp.add_argument('--disable-git-clean', action='store_true')
+    argp.add_argument('--force-rebuild', action='store_true')
     
     args = argp.parse_args()
     
@@ -238,9 +239,9 @@ if __name__ == '__main__':
     cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug' if DEBUG else 'Release')
     cmake.setFlag('CMAKE_INSTALL_PREFIX', '/usr')
     
-    configure_ccache(cfg)
-    configure_distcc(cfg)
-    configure_cotire(cfg)
+    configure_ccache(cfg,cmake)
+    configure_distcc(cfg,cmake)
+    configure_cotire(cfg,cmake)
 
     job_flag = '-j' + str(cfg.get('env.cmake.jobs', 1))
     MAKE_FLAGS += [job_flag]
@@ -254,8 +255,10 @@ if __name__ == '__main__':
             cmd(['git', 'log', '-n', '1', '--pretty=oneline'], echo=False)
             
         hhvm_bin = os.path.join(SOURCE_DIR, 'hphp/hhvm/hhvm')
-        if not os.path.isfile(hhvm_bin):
+        rebuild=args.force_rebuild
+        if not rebuild and not os.path.isfile(hhvm_bin):
             log.warn('hhvm binaries not found, recompiling.')
+        if rebuild:
             with log.info('Preparing to compile...'):
                 if NIGHTLY:
                     cmd('git checkout master'.split(), critical=True)
