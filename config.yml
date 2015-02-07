@@ -44,4 +44,4 @@ paths:
   package: /tmp/hhvm-package
   source: ../hhvm
   exts:
-    hhvm-pgsql: '../hhvm-pgsql'
+    hhvm-pgsql: git@github.com:N3X15/hhvm-pgsql.git

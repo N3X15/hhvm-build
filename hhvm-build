@@ -79,6 +79,25 @@ def RunCommandsIn(commandlist, pkg_cfg, var_replacements):
 def aggregate(cfg, dir):
     job_cfg = yaml.load(os.path.join(dir, 'package.yml'))
     
+def CloneOrPull(id, uri, dir):
+    if not os.path.isdir(dir):
+        cmd(['git', 'clone', uri, dir], echo=True, show_output=True, critical=True)
+    else:
+        with os_utils.Chdir(dir):
+            cmd(['git', 'pull'], echo=True, show_output=True, critical=True)
+    with os_utils.Chdir(dir):            
+        log.info('{} is now at commit {}.'.format(id, Git.GetCommit()))
+    
+def buildExt(cfg, name):
+    ext_dir = os.path.join(script_dir,'ext',name)
+    git_uri = cfg['paths'][name]
+    CloneOrPull(name, git_uri, ext_dir)
+    with Chdir(ext_dir):
+        cmd('git clean -fdx'.split(' '),critical=True)
+        cmd(['hphpize'], critical=True)
+        cmd(['cmake','.'], critical=True)
+        cmd(['make'], critical=True)
+    
 if __name__ == '__main__':
     import argparse
         
@@ -135,7 +154,7 @@ if __name__ == '__main__':
                 'install': '/tmp/hhvm-install',
                 'package': '/tmp/hhvm-package',
                 'exts':{
-                    'hhvm-pgsql' : '../hhvm-pgsql'
+                    #'hhvm-pgsql' : '../hhvm-pgsql'
                 },
             }
         }
@@ -148,7 +167,7 @@ if __name__ == '__main__':
     argp.add_argument('version', type=str, help='HHVM Version')
     
     argp.add_argument('hhvm_job', type=str, help='HHVM Jenkins workspace')
-    # argp.add_argument('--ext', nargs='*' , help='HHVM extension workspace', default=[])
+    argp.add_argument('--ext', nargs='?' , help='HHVM extension to build')
     
     argp.add_argument('-c','--config', type=str, default='config.yml', help='YAML file to read configuration from.')
     
@@ -159,6 +178,7 @@ if __name__ == '__main__':
     argp.add_argument('--disable-repo-deploy', action='store_true')
     argp.add_argument('--disable-git-clean', action='store_true')
     argp.add_argument('--force-rebuild', action='store_true')
+    argp.add_argument('--skip-exts', action='store_true')
     
     args = argp.parse_args()
     
@@ -351,8 +371,9 @@ if __name__ == '__main__':
                             break
                         log.warn('%s exists, increasing iterator and trying again.', package)
                         iterator += 1
+                    log.info('package=%s', package)
                 with log.info('Running FPM...'):
-                    fpm.version = version
+                    fpm.version = str(version)
                     fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
                     fpm.name = pkgname
                     fpm.provides = ['hhvm']
@@ -361,7 +382,7 @@ if __name__ == '__main__':
                     fpm.replaces = replaces
                     fpm.inputs = ['.']
                     fpm.workdir = PACKAGE_DIR
-                    fpm.Build(package)
+                    fpm.Build(str(package))
             
             if cfg.get('env.packaging.repo-deploy', True):
                 with log.info('Adding package to repo...'):
