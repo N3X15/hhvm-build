@@ -11,6 +11,7 @@ sys.path.append(os.path.join(script_dir, 'lib', 'buildtools'))
 
 from buildtools import *
 from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, configure_distcc
+from buildtools.posix.elf import ELFInfo
 
 def bool2yn(b):
     return 'Y' if b else 'N'
@@ -372,6 +373,14 @@ if __name__ == '__main__':
                         log.warn('%s exists, increasing iterator and trying again.', package)
                         iterator += 1
                     log.info('package=%s', package)
+                with log.info('Determining package dependencies...'):
+                    elf = ELFInfo(PACKAGE_DIR+'/usr/bin/hhvm')
+                    with log.info('Loading ELF info...'):
+                        elf.Load()
+                        log.info('elf.needed = ' + repr(elf.needed))
+                    with log.info('Finding packages...'):
+                        fpm.dependencies = os_utils.DpkgSearchFiles(elf.needed)
+                        log.info('fpm.dependencies = '+repr(packages))
                 with log.info('Running FPM...'):
                     fpm.version = str(version)
                     fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
