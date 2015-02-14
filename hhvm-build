@@ -90,13 +90,13 @@ def CloneOrPull(id, uri, dir):
         log.info('{} is now at commit {}.'.format(id, Git.GetCommit()))
     
 def buildExt(cfg, name):
-    ext_dir = os.path.join(script_dir,'ext',name)
+    ext_dir = os.path.join(script_dir, 'ext', name)
     git_uri = cfg['paths'][name]
     CloneOrPull(name, git_uri, ext_dir)
     with Chdir(ext_dir):
-        cmd('git clean -fdx'.split(' '),critical=True)
+        cmd('git clean -fdx'.split(' '), critical=True)
         cmd(['hphpize'], critical=True)
-        cmd(['cmake','.'], critical=True)
+        cmd(['cmake', '.'], critical=True)
         cmd(['make'], critical=True)
     
 if __name__ == '__main__':
@@ -155,7 +155,7 @@ if __name__ == '__main__':
                 'install': '/tmp/hhvm-install',
                 'package': '/tmp/hhvm-package',
                 'exts':{
-                    #'hhvm-pgsql' : '../hhvm-pgsql'
+                    # 'hhvm-pgsql' : '../hhvm-pgsql'
                 },
             }
         }
@@ -170,11 +170,12 @@ if __name__ == '__main__':
     argp.add_argument('hhvm_job', type=str, help='HHVM Jenkins workspace')
     argp.add_argument('--ext', nargs='?' , help='HHVM extension to build')
     
-    argp.add_argument('-c','--config', type=str, default='config.yml', help='YAML file to read configuration from.')
+    argp.add_argument('-c', '--config', type=str, default='config.yml', help='YAML file to read configuration from.')
     
     argp.add_argument('--disable-ccache', action='store_true')
     argp.add_argument('--disable-distcc', action='store_true')
     argp.add_argument('--disable-cotire', action='store_true')
+    argp.add_argument('--package-only', action='store_true')
     argp.add_argument('--disable-packaging', action='store_true')
     argp.add_argument('--disable-repo-deploy', action='store_true')
     argp.add_argument('--disable-git-clean', action='store_true')
@@ -260,9 +261,9 @@ if __name__ == '__main__':
     cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug' if DEBUG else 'Release')
     cmake.setFlag('CMAKE_INSTALL_PREFIX', '/usr')
     
-    configure_ccache(cfg,cmake)
-    configure_distcc(cfg,cmake)
-    configure_cotire(cfg,cmake)
+    configure_ccache(cfg, cmake)
+    configure_distcc(cfg, cmake)
+    configure_cotire(cfg, cmake)
 
     job_flag = '-j' + str(cfg.get('env.cmake.jobs', 1))
     MAKE_FLAGS += [job_flag]
@@ -276,9 +277,13 @@ if __name__ == '__main__':
             cmd(['git', 'log', '-n', '1', '--pretty=oneline'], echo=False)
             
         hhvm_bin = os.path.join(SOURCE_DIR, 'hphp/hhvm/hhvm')
-        rebuild=args.force_rebuild
+        rebuild = args.force_rebuild
         if not rebuild and not os.path.isfile(hhvm_bin):
-            log.warn('hhvm binaries not found, recompiling.')
+            log.warn('hhvm binaries not found.')
+            rebuild = True
+        if rebuild and args.package_only:
+            log.error('Nothing to package, aborting.')
+            sys.exit(1)
         if rebuild:
             with log.info('Preparing to compile...'):
                 if NIGHTLY:
@@ -308,8 +313,8 @@ if __name__ == '__main__':
             log.critical(hhvm_bin + " doesn't exist")
             sys.exit(1)
         
-    with log.info('Packaging...'):
-        if cfg.get('env.packaging.enabled', False):
+    if cfg.get('env.packaging.enabled', False):
+        with log.info('Packaging...'):
             d_pkg_cfg = {
                 'make-workspace':[],
                 'fpm': {
@@ -374,14 +379,14 @@ if __name__ == '__main__':
                         iterator += 1
                     log.info('package=%s', package)
                 with log.info('Determining package dependencies...'):
-                    elf = ELFInfo(PACKAGE_DIR+'/usr/bin/hhvm')
+                    elf = ELFInfo(PACKAGE_DIR + '/usr/bin/hhvm')
                     with log.info('Loading ELF info...'):
                         elf.Load()
                         elf.Close()
                         log.info('elf.needed = ' + repr(elf.needed))
                     with log.info('Finding packages...'):
                         fpm.dependencies = os_utils.DpkgSearchFiles(elf.needed)
-                        log.info('fpm.dependencies = '+repr(packages))
+                        log.info('fpm.dependencies = ' + repr(packages))
                 with log.info('Running FPM...'):
                     fpm.version = str(version)
                     fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
