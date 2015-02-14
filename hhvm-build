@@ -387,7 +387,7 @@ if __name__ == '__main__':
                         log.info('elf.needed = ' + repr(elf.needed))
                     with log.info('Finding packages...'):
                         fpm.dependencies = os_utils.DpkgSearchFiles(elf.needed)
-                        log.info('fpm.dependencies = ' + repr(packages))
+                        log.info('fpm.dependencies = ' + repr(fpm.dependencies))
                 with log.info('Running FPM...'):
                     fpm.version = str(version)
                     fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
