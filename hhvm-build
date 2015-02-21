@@ -315,7 +315,7 @@ if __name__ == '__main__':
         
     if cfg.get('env.packaging.enabled', False):
         for build_type in ['main','dev']:
-            if buildtype == 'dev': 
+            if build_type == 'dev': 
                 DEVONLY=True
                 if DEBUG: continue
                 
