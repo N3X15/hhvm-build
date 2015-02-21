@@ -278,18 +278,6 @@ if __name__ == '__main__':
         'HPHP_HOME':SOURCE_DIR
     })
     
-    distro_info = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE, 'package.yml')
-    distro_cfg = Config(distro_info, {})
-    if len(distro_cfg.get('prebuild', [])) > 0 :
-        log.info('Performing prebuild steps...')
-        origpath=os.path.abspath(os.getcwd())
-        RunCommandsIn(distro_cfg.get('prebuild', []), distro_cfg, {
-            'SOURCE_DIR':SOURCE_DIR,
-            'DISTRO_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
-            'HHVMBUILD_DIR':HHVMBUILD_DIR
-        });
-        os.chdir(origpath)
-    
     cmake = CMake()
     for k, v in cfg.get('env.cmake.flags', {}).items():
         cmake.setFlag(k, v) 
@@ -340,6 +328,18 @@ if __name__ == '__main__':
                     cmd('git clean -fdx'.split(' '))
                 
                 cmd('git submodule update --init --recursive'.split(' '), critical=True)
+    
+                distro_info = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE, 'package.yml')
+                distro_cfg = Config(distro_info, {})
+                if len(distro_cfg.get('prebuild', [])) > 0 :
+                    log.info('Performing prebuild steps...')
+                    origpath=os.path.abspath(os.getcwd())
+                    RunCommandsIn(distro_cfg.get('prebuild', []), distro_cfg, {
+                        'SOURCE_DIR':SOURCE_DIR,
+                        'DISTRO_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
+                        'HHVMBUILD_DIR':HHVMBUILD_DIR
+                    });
+                    os.chdir(origpath)
             
             if not cmake.run(cfg.get('bin.cmake', 'cmake')):
                 sys.exit(1)
