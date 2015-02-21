@@ -90,9 +90,8 @@ def CloneOrPull(id, uri, dir):
     with os_utils.Chdir(dir):            
         log.info('{} is now at commit {}.'.format(id, Git.GetCommit()))
     
-def buildExt(cfg, name):
+def buildExt(name, git_uri):
     ext_dir = os.path.join(script_dir, 'ext', name)
-    git_uri = cfg['paths'][name]
     CloneOrPull(name, git_uri, ext_dir)
     with Chdir(ext_dir):
         cmd('git clean -fdx'.split(' '), critical=True)
@@ -315,94 +314,110 @@ if __name__ == '__main__':
             sys.exit(1)
         
     if cfg.get('env.packaging.enabled', False):
-        with log.info('Packaging...'):
-            d_pkg_cfg = {
-                'make-workspace':[],
-                'fpm': {
-                    'output-type':'deb'
-                }
-            }
-            
-            
-            pkg_cfg = Config(os.path.join(DISTRO_DIR, 'package.yml'), d_pkg_cfg)
-            with Chdir(SOURCE_DIR) as sourcedir:
-                cmd([cfg.get('bin.make', 'make'), 'install', 'DESTDIR=' + INSTALL_DIR], critical=True)
-                pkgname = 'hhvm'
-                skeletondirname = 'skeleton'
-                if DEVONLY:
-                    pkgname += '-dev'
-                    skeletondirname += '-dev'
-                if NIGHTLY:
-                    pkgname += '-nightly'
-                if DEBUG and not DEVONLY:
-                    pkgname += '-dbg'
-                    
-                if NIGHTLY:
-                    version = NIGHTLY_DATE + '~' + ('debug' if DEBUG else 'release')
-                    if DEBUG:
-                        conflicts = replaces = ['hhvm', 'hhvm-nightly', 'hhvm-dbg']
-                    else:
-                        conflicts = replaces = ['hhvm', 'hhvm-dbg']
-                else:
-                    if DEBUG: conflicts = replaces = ['hhvm']
-                    version = HHVM_VERSION + '~' + ('debug' if DEBUG else 'release')
-            
-            if len(pkg_cfg.get('make-workspace', [])) > 0 :
-                log.info('Doing stuff to workspace...')
-                RunCommandsIn(pkg_cfg.get('make-workspace', []), pkg_cfg, {
-                    'SOURCE_DIR':SOURCE_DIR,
-                    'DISTRO_DIR':DISTRO_DIR,
-                    'INSTALL_DIR':INSTALL_DIR,
-                    'PACKAGE_DIR':PACKAGE_DIR,
-                    'DISTRO_DIR':DISTRO_DIR,
-                    'SKELETON_DIR':os.path.join(HHVMBUILD_DIR, DISTRO_NAME, skeletondirname),
-                    'HHVMBUILD_DIR':HHVMBUILD_DIR
-                });
-
-            package = ''
-            pkgVersion = ''
+        for build_type in ['main','dev']:
+            if buildtype == 'dev': 
+                DEVONLY=True
+                if DEBUG: continue
                 
-            with Chdir(PACKAGE_DIR):
-                fpm = FPM()
-                fpm.input_type = 'dir'
-                fpm.output_type = 'deb'
-                with log.info('Loading ' + DISTRO_DIR + '/DEBIAN/control...'):
-                    fpm.LoadControl(DISTRO_DIR + '/DEBIAN/control')
-                with log.info('Figuring out version number...'):
-                    while True:
-                        pkgVersion = version
-                        if iteration > 0:
-                            pkgVersion += '-{}'.format(iteration)
-                        package = os.path.join(HHVMBUILD_DIR, '{name}_{version}.{arch}.deb'.format(name=pkgname, version=pkgVersion, arch=fpm.architecture))
-                        if not os.path.isfile(package):
-                            break
-                        log.warn('%s exists, increasing iterator and trying again.', package)
-                        iterator += 1
-                    log.info('package=%s', package)
-                with log.info('Determining package dependencies...'):
-                    elf = ELFInfo(PACKAGE_DIR + '/usr/bin/hhvm')
-                    with log.info('Loading ELF info...'):
-                        elf.Load()
-                        elf.Close()
-                        log.info('elf.needed = ' + repr(elf.needed))
-                    with log.info('Finding packages...'):
-                        fpm.dependencies = os_utils.DpkgSearchFiles(elf.needed)
-                        log.info('fpm.dependencies = ' + repr(fpm.dependencies))
-                with log.info('Running FPM...'):
-                    fpm.version = str(version)
-                    fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
-                    fpm.name = pkgname
-                    fpm.provides = ['hhvm']
-                    fpm.conflicts = conflicts
-                    fpm.iteration = iteration
-                    fpm.replaces = replaces
-                    fpm.inputs = ['.']
-                    fpm.workdir = PACKAGE_DIR
-                    fpm.Build(str(package))
-            
-            if cfg.get('env.packaging.repo-deploy', True):
-                with log.info('Adding package to repo...'):
-                    cmd(['freight-add', package, 'apt/' + DISTRO_RELEASE], critical=True)
+            pkgname = 'hhvm'
+            skeletondirname = 'skeleton'
+            suffix = ''
+            if DEVONLY:
+                pkgname += '-dev'
+                suffix = '-dev'
+            if NIGHTLY:
+                pkgname += '-nightly'
+            if DEBUG and not DEVONLY:
+                pkgname += '-dbg'
+                
+            with log.info('Packaging {}...'.format(pkgname)):
                     
-                with log.info('Generating repository cache...'):
-                    cmd(['freight-cache', '-p', '~/.gpass'])
+                d_pkg_cfg = {
+                    'make-workspace':[],
+                    'fpm': {
+                        'output-type':'deb'
+                    }
+                }
+                    
+                skeletondirname += suffix
+                    
+                pkginfo_dir = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE+suffix)
+                
+                pkg_cfg = Config(os.path.join(pkginfo_dir, 'package.yml'), d_pkg_cfg)
+                with Chdir(SOURCE_DIR) as sourcedir:
+                    cmd([cfg.get('bin.make', 'make'), 'install', 'DESTDIR=' + INSTALL_DIR], critical=True)
+                        
+                    if NIGHTLY:
+                        version = NIGHTLY_DATE + '~' + ('debug' if DEBUG else 'release')
+                        if DEBUG:
+                            conflicts = replaces = ['hhvm', 'hhvm-nightly', 'hhvm-dbg']
+                        else:
+                            conflicts = replaces = ['hhvm', 'hhvm-dbg']
+                    else:
+                        if DEBUG: conflicts = replaces = ['hhvm']
+                        version = HHVM_VERSION + '~' + ('debug' if DEBUG else 'release')
+                
+                if len(pkg_cfg.get('make-workspace', [])) > 0 :
+                    log.info('Doing stuff to workspace...')
+                    RunCommandsIn(pkg_cfg.get('make-workspace', []), pkg_cfg, {
+                        'SOURCE_DIR':SOURCE_DIR,
+                        'DISTRO_DIR':DISTRO_DIR,
+                        'INSTALL_DIR':INSTALL_DIR,
+                        'PACKAGE_DIR':PACKAGE_DIR,
+                        'DISTRO_DIR':DISTRO_DIR,
+                        'SKELETON_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, skeletondirname),
+                        'HHVMBUILD_DIR':HHVMBUILD_DIR
+                    });
+
+                package = ''
+                pkgVersion = ''
+                    
+                with Chdir(PACKAGE_DIR):
+                    fpm = FPM()
+                    fpm.input_type = 'dir'
+                    fpm.output_type = 'deb'
+                    with log.info('Loading ' + DISTRO_DIR + '/DEBIAN/control...'):
+                        fpm.LoadControl(DISTRO_DIR + '/DEBIAN/control')
+                    with log.info('Figuring out version number...'):
+                        while True:
+                            pkgVersion = version
+                            if iteration > 0:
+                                pkgVersion += '-{}'.format(iteration)
+                            package = os.path.join(HHVMBUILD_DIR, '{name}_{version}.{arch}.deb'.format(name=pkgname, version=pkgVersion, arch=fpm.architecture))
+                            if not os.path.isfile(package):
+                                break
+                            log.warn('%s exists, increasing iterator and trying again.', package)
+                            iterator += 1
+                        log.info('package=%s', package)
+                    if build_type != 'dev':
+                        with log.info('Determining package dependencies...'):
+                            elf = ELFInfo(PACKAGE_DIR + '/usr/bin/hhvm')
+                            with log.info('Loading ELF info...'):
+                                elf.Load()
+                                elf.Close()
+                                log.info('elf.needed = ' + repr(elf.needed))
+                            with log.info('Finding packages...'):
+                                fpm.dependencies = os_utils.DpkgSearchFiles(elf.needed)
+                                log.info('fpm.dependencies = ' + repr(fpm.dependencies))
+                    with log.info('Running FPM...'):
+                        fpm.version = str(version)
+                        fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
+                        fpm.name = pkgname
+                        fpm.provides = ['hhvm']
+                        fpm.conflicts = conflicts
+                        fpm.iteration = iteration
+                        fpm.replaces = replaces
+                        fpm.inputs = ['.']
+                        fpm.workdir = PACKAGE_DIR
+                        fpm.Build(str(package))
+                
+                if cfg.get('env.packaging.repo-deploy', True):
+                    with log.info('Adding package to repo...'):
+                        cmd(['freight-add', package, 'apt/' + DISTRO_RELEASE], critical=True)
+                        
+                    with log.info('Generating repository cache...'):
+                        cmd(['freight-cache', '-p', '~/.gpass'])
+    
+    #extcfg = cfg.get('paths.exts',{})
+    #for name, extpath in extcfg:
+    #    buildExt(name, extpath)

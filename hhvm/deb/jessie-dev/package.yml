@@ -1,0 +1,10 @@
+make-workspace:    
+  - mkdir -p %%PACKAGE_DIR%%/
+  - cp -r %%HHVMBUILD_DIR%%/skeleton-dev/* %%PACKAGE_DIR%%/
+  - cp -r %%DISTRO_DIR%%-dev/* %%PACKAGE_DIR%%/
+  - cp -r %%SOURCE_DIR%%/usr/include/hphp %%PACKAGE_DIR%%/usr/include/
+  - mkdir --parents %%PACKAGE_DIR%%/usr/lib
+  - cp -r %%SOURCE_DIR%%/usr/lib/hhvm %%PACKAGE_DIR%%/usr/lib/hhvm
+  - cp -r %%SOURCE_DIR%%/usr/bin/hphpize %%PACKAGE_DIR%%/usr/bin/
+  - chmod 755 %%PACKAGE_DIR%%/usr/bin/hphpize
+  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat chown -R root:root %%PACKAGE_DIR%%/
