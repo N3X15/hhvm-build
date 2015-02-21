@@ -280,9 +280,9 @@ if __name__ == '__main__':
     
     distro_info = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE, 'package.yml')
     distro_cfg = Config(distro_info, {})
-    if len(pkg_cfg.get('prebuild', [])) > 0 :
+    if len(distro_cfg.get('prebuild', [])) > 0 :
         log.info('Performing prebuild steps...')
-        RunCommandsIn(pkg_cfg.get('prebuild', []), pkg_cfg, {
+        RunCommandsIn(distro_cfg.get('prebuild', []), distro_cfg, {
             'SOURCE_DIR':SOURCE_DIR,
             'DISTRO_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
             'HHVMBUILD_DIR':HHVMBUILD_DIR
