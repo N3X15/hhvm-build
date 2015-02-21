@@ -54,6 +54,26 @@ def handleIf(operators, pkg_cfg, var_replacements):
         return True
     else:
         return False
+
+def handleChdir(operators, pkg_cfg, var_replacements):
+    if len(operators):
+        origpath=os.path.abspath(os.getcwd())
+        for expr in operators:
+            (operator, args) = dictToTuples(expr)[0]
+            if isinstance(args, str):
+                args = args.split(' ')
+            args = [replace_vars(arg, var_replacements) for arg in args]
+            if operator == 'dir':
+                if not os.path.isdir(args[0]): 
+                    return (False,None)
+                else:
+                    os.chdir(args[0])
+                    return (True,lambda: os.chdir(origpath))
+            else:
+                log.warn('Invalid operator %s', operator)
+        return (True,lambda: os.chdir(origpath))
+    else:
+        return (False,None)
     
 def RunCommandsIn(commandlist, pkg_cfg, var_replacements):
     if len(commandlist) == 0: return
@@ -62,12 +82,18 @@ def RunCommandsIn(commandlist, pkg_cfg, var_replacements):
             # Conditionals
             if isinstance(package_cmd, dict):
                 result = None
+                postwork = None
                 if 'if' in package_cmd: 
                     result = handleIf(package_cmd['if'], pkg_cfg, var_replacements)
                 if 'if-not' in package_cmd: 
                     result = not handleIf(package_cmd['if-not'], pkg_cfg, var_replacements)
-                if result is None: continue
+                if 'chdir' in package_cmd:
+                    result, origpath = handleChdir(package_cmd['chdir'], pkg_cfg, var_replacements)
+                if result is None: 
+                    continue
                 RunCommandsIn(package_cmd.get('then' if result else 'else', []), pkg_cfg, var_replacements)
+                if postwork is not None:
+                    origpath()
                 continue
             
             # Strings -> lists
@@ -252,6 +278,17 @@ if __name__ == '__main__':
         'HPHP_HOME':SOURCE_DIR
     })
     
+    distro_info = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE, 'package.yml')
+    distro_cfg = Config(distro_info, {})
+    if len(pkg_cfg.get('prebuild', [])) > 0 :
+        log.info('Performing prebuild steps...')
+        RunCommandsIn(pkg_cfg.get('prebuild', []), pkg_cfg, {
+            'SOURCE_DIR':SOURCE_DIR,
+            'DISTRO_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
+            'HHVMBUILD_DIR':HHVMBUILD_DIR
+        });
+    
+    
     cmake = CMake()
     for k, v in cfg.get('env.cmake.flags', {}).items():
         cmake.setFlag(k, v) 
@@ -389,6 +426,7 @@ if __name__ == '__main__':
                             log.warn('%s exists, increasing iterator and trying again.', package)
                             iterator += 1
                         log.info('package=%s', package)
+                        
                     if build_type != 'dev':
                         with log.info('Determining package dependencies...'):
                             elf = ELFInfo(PACKAGE_DIR + '/usr/bin/hhvm')
@@ -399,6 +437,7 @@ if __name__ == '__main__':
                             with log.info('Finding packages...'):
                                 fpm.dependencies = os_utils.DpkgSearchFiles(elf.needed)
                                 log.info('fpm.dependencies = ' + repr(fpm.dependencies))
+                                
                     with log.info('Running FPM...'):
                         fpm.version = str(version)
                         fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
