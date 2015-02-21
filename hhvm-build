@@ -282,12 +282,13 @@ if __name__ == '__main__':
     distro_cfg = Config(distro_info, {})
     if len(distro_cfg.get('prebuild', [])) > 0 :
         log.info('Performing prebuild steps...')
+        origpath=os.path.abspath(os.getcwd())
         RunCommandsIn(distro_cfg.get('prebuild', []), distro_cfg, {
             'SOURCE_DIR':SOURCE_DIR,
             'DISTRO_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
             'HHVMBUILD_DIR':HHVMBUILD_DIR
         });
-    
+        os.chdir(origpath)
     
     cmake = CMake()
     for k, v in cfg.get('env.cmake.flags', {}).items():
