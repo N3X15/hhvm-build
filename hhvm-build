@@ -179,10 +179,7 @@ if __name__ == '__main__':
             'paths':{
                 'source':'../hhvm',
                 'install': '/tmp/hhvm-install',
-                'package': '/tmp/hhvm-package',
-                'exts':{
-                    # 'hhvm-pgsql' : '../hhvm-pgsql'
-                },
+                'package': '/tmp/hhvm-package'
             }
         }
     
@@ -352,6 +349,9 @@ if __name__ == '__main__':
             sys.exit(1)
         
     if cfg.get('env.packaging.enabled', False):
+        stdout,stderr = cmd_output('dpkg-architecture -qDEB_BUILD_GNU_TYPE'.split(),critical=True,echo=False)
+        ARCH = (stdout+stderr).strip()
+        
         for build_type in ['main','dev']:
             if build_type == 'dev': 
                 DEVONLY=True
@@ -396,7 +396,7 @@ if __name__ == '__main__':
                         version = HHVM_VERSION + '~' + ('debug' if DEBUG else 'release')
                 
                 if len(pkg_cfg.get('make-workspace', [])) > 0 :
-                    log.info('Doing stuff to workspace...')
+                    log.info('Prepping workspace{} for packaging...'.format(suffix))
                     RunCommandsIn(pkg_cfg.get('make-workspace', []), pkg_cfg, {
                         'SOURCE_DIR':SOURCE_DIR,
                         'DISTRO_DIR':DISTRO_DIR,
@@ -404,7 +404,8 @@ if __name__ == '__main__':
                         'PACKAGE_DIR':PACKAGE_DIR,
                         'DISTRO_DIR':DISTRO_DIR,
                         'SKELETON_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, skeletondirname),
-                        'HHVMBUILD_DIR':HHVMBUILD_DIR
+                        'HHVMBUILD_DIR':HHVMBUILD_DIR,
+                        'ARCH': ARCH
                     });
 
                 package = ''

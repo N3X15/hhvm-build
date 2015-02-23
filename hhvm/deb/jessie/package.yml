@@ -8,7 +8,7 @@ prebuild:
       - git pull origin webscalesql-5.6.23
 make-workspace:
   - cp -R %%HHVMBUILD_DIR%%/*.md %%PACKAGE_DIR%%/
-  - cp -R %%HHVMBUILD_DIR%%/skeleton/* %%PACKAGE_DIR%%/
+  - cp -r %%DISTRO_DIR%%/../skeleton/* %%PACKAGE_DIR%%/
   #- cp -R %%DISTRO_DIR%%/DEBIAN %%PACKAGE_DIR%%/
   - cp -R %%DISTRO_DIR%%/usr %%PACKAGE_DIR%%/
   - echo Checking for %%PACKAGE_DIR%%/deps...
