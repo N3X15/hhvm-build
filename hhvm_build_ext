@@ -1,0 +1,104 @@
+#!/usr/bin/python
+'''
+A Crappy HHVM Compiler (extension builder)
+
+run with ./hhvm_build_ext debian jessie /var/lib/jenkins/workspace/hhvm_pgsql
+'''
+import os, sys, yaml, tempfile, re, shutil, logging, subprocess, datetime, glob
+
+script_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(script_dir, 'lib', 'buildtools'))
+
+from hhvm_build import *
+from buildtools import *
+from buildtools import os_utils
+from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, configure_distcc
+from buildtools.posix.elf import ELFInfo
+    
+if __name__ == '__main__':
+    argp = argparse.ArgumentParser(prog='hhvm_build_ext', description='Build HHVM extension')
+    
+    argp.add_argument('distro', type=str, help='Linux Distribution (deb, etc)')
+    argp.add_argument('release', type=str, help='OS Release codename (precise, etc)')
+    
+    argp.add_argument('workspace', type=str, help='Extension\'s Jenkins workspace')
+    
+    argp.add_argument('-c', '--config', type=str, default='config.yml', help='YAML file to read configuration from.')
+    
+    argp.add_argument('--disable-ccache', action='store_true')
+    argp.add_argument('--disable-distcc', action='store_true')
+    argp.add_argument('--disable-cotire', action='store_true')
+    argp.add_argument('--package-only', action='store_true')
+    argp.add_argument('--disable-packaging', action='store_true')
+    argp.add_argument('--disable-repo-deploy', action='store_true')
+    argp.add_argument('--disable-git-clean', action='store_true')
+    argp.add_argument('--force-rebuild', action='store_true')
+    
+    args = argp.parse_args()
+    
+    cfg = Config(args.config, d_cfg)
+    
+    if args.disable_ccache: cfg['env']['ccache']['enable'] = False
+    if args.disable_distcc: cfg['env']['distcc']['enable'] = False
+    if args.disable_cotire: cfg['env']['cotire']['enable'] = False
+    if args.disable_packaging: cfg['env']['packaging']['enable'] = False
+    if args.disable_repo_deploy: cfg['env']['packaging']['repo-deploy'] = False
+    
+    DISTRO_NAME = args.distro
+    DISTRO_RELEASE = args.release
+    
+    HHVMBUILD_DIR = os.getcwd()
+    DISTRO_DIR = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE)
+    
+    HHVM_VERSION = args.version
+    SOURCE_DIR = args.workspace
+    
+    if not os.path.isdir(DISTRO_DIR):
+        logging.fatal('Directory {0} doesn\'t exist.'.format(DISTRO_DIR))
+        sys.exit(1)
+        
+    if SOURCE_DIR is None or not os.path.isdir(SOURCE_DIR):
+        SOURCE_DIR = os.path.abspath(cfg.get('paths.source'))
+        
+    if not os.path.isdir(SOURCE_DIR):
+        log.info('Source code not found. SOURCE_DIR={}'.format(SOURCE_DIR))
+        sys.exit(1)
+        
+    INSTALL_DIR = os.path.abspath(cfg.get('paths.install'))
+    mkdirOrClear(INSTALL_DIR)
+        
+    PACKAGE_DIR = os.path.abspath(cfg.get('paths.package'))
+    mkdirOrClear(PACKAGE_DIR)
+    
+    ENV.merge({
+        'CC':  cfg.get('bin.cc', 'gcc-4.8'),
+        'CXX': cfg.get('bin.cxx', 'g++-4.8'),
+        'ASM': cfg.get('bin.asm', 'cc'),
+    
+        'CMAKE_INCLUDE_PATH':tempfile.mkstemp(),
+        'CMAKE_LIBRARY_PATH':"/usr/lib/hhvm/" ,
+        'HPHP_HOME':SOURCE_DIR
+    })
+    
+    cmake = CMake()
+    for k, v in cfg.get('env.cmake.flags', {}).items():
+        cmake.setFlag(k, v) 
+    
+    MAKE_FLAGS = cfg.get('env.make.flags', [])
+    
+    cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug' if DEBUG else 'Release')
+    cmake.setFlag('CMAKE_INSTALL_PREFIX', '/usr')
+    
+    configure_ccache(cfg, cmake)
+    configure_distcc(cfg, cmake)
+    configure_cotire(cfg, cmake)
+
+    job_flag = '-j' + str(cfg.get('env.cmake.jobs', 1))
+    MAKE_FLAGS += [job_flag]
+    
+    with Chdir(ext_dir):
+        if args.force_rebuild:
+            cmd('git clean -fdx'.split(' '), critical=True)
+        cmd(['hphpize'], critical=True)
+        cmd(['cmake', '.'], critical=True)
+        cmd(['make'], critical=True)

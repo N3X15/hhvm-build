@@ -2,7 +2,7 @@
 '''
 A Crappy HHVM Compiler
 
-run with ./hhvm-build debian jessie 3.3
+run with ./hhvm_build debian jessie 3.3
 '''
 import os, sys, yaml, tempfile, re, shutil, logging, subprocess, datetime, glob
 
@@ -116,15 +116,6 @@ def CloneOrPull(id, uri, dir):
     with os_utils.Chdir(dir):            
         log.info('{} is now at commit {}.'.format(id, Git.GetCommit()))
     
-def buildExt(name, git_uri):
-    ext_dir = os.path.join(script_dir, 'ext', name)
-    CloneOrPull(name, git_uri, ext_dir)
-    with Chdir(ext_dir):
-        cmd('git clean -fdx'.split(' '), critical=True)
-        cmd(['hphpize'], critical=True)
-        cmd(['cmake', '.'], critical=True)
-        cmd(['make'], critical=True)
-    
 if __name__ == '__main__':
     import argparse
         
@@ -184,14 +175,13 @@ if __name__ == '__main__':
         }
     
     
-    argp = argparse.ArgumentParser(prog='hhvm-build', description='Build HHVM')
+    argp = argparse.ArgumentParser(prog='hhvm_build', description='Build HHVM')
     
     argp.add_argument('distro', type=str, help='Linux Distribution (deb, etc)')
     argp.add_argument('release', type=str, help='OS Release codename (precise, etc)')
     argp.add_argument('version', type=str, help='HHVM Version')
     
     argp.add_argument('hhvm_job', type=str, help='HHVM Jenkins workspace')
-    argp.add_argument('--ext', nargs='?' , help='HHVM extension to build')
     
     argp.add_argument('-c', '--config', type=str, default='config.yml', help='YAML file to read configuration from.')
     
@@ -203,7 +193,6 @@ if __name__ == '__main__':
     argp.add_argument('--disable-repo-deploy', action='store_true')
     argp.add_argument('--disable-git-clean', action='store_true')
     argp.add_argument('--force-rebuild', action='store_true')
-    argp.add_argument('--skip-exts', action='store_true')
     
     args = argp.parse_args()
     

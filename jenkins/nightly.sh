@@ -1,1 +1,1 @@
-./hhvm-build deb jessie 3.5.0-nightly ../hhvm-master --force-rebuild
+./hhvm_build deb jessie 3.6.0-nightly ../hhvm-master --force-rebuild
