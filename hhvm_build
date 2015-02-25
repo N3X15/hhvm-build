@@ -433,7 +433,7 @@ if __name__ == '__main__':
                         fpm.version = str(version)
                         fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
                         fpm.name = pkgname
-                        fpm.provides = ['hhvm'+suffix]
+                        #fpm.provides = ['hhvm'+suffix]
                         fpm.conflicts = conflicts
                         fpm.iteration = iteration
                         fpm.replaces = replaces
