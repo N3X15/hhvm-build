@@ -33,10 +33,11 @@ make-workspace:
       - cp %%SOURCE_DIR%%/hphp/hack/bin/h2tp %%PACKAGE_DIR%%/root/usr/bin/
       - chmod 755 %%PACKAGE_DIR%%/root/usr/bin/h2tp
       - mkdir -p %%PACKAGE_DIR%%/root/usr/share/hhvm/hack/
-      - cp -r %%SOURCE_DIR%%/hphp/hack/src/h2tp/resources %%PACKAGE_DIR%%/root/usr/share/hhvm/hack/hacklib
+      - cp -r %%SOURCE_DIR%%/hphp/hack/src/h2tp/resources %%PACKAGE_DIR%%/usr/share/hhvm/hack/hacklib
   - mkdir -p %%PACKAGE_DIR%%/usr/share/hhvm/hack/
   - cp -r %%SOURCE_DIR%%/hphp/hack/editor-plugins/emacs %%PACKAGE_DIR%%/usr/share/hhvm/hack/
   - cp -r %%SOURCE_DIR%%/hphp/hack/editor-plugins/vim %%PACKAGE_DIR%%/usr/share/hhvm/hack/
-  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat chown -R root:root %%PACKAGE_DIR%%/root
-  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat -i %%PACKAGE_DIR%%/fakeroot.dat chown -R www-data:www-data %%PACKAGE_DIR%%/root/var/log/hhvm/
-  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat -i %%PACKAGE_DIR%%/fakeroot.dat chown -R www-data:www-data %%PACKAGE_DIR%%/root/var/run/hhvm/
+  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat chown -R root:root %%PACKAGE_DIR%%/
+  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat -i %%PACKAGE_DIR%%/fakeroot.dat chown -R www-data:www-data %%PACKAGE_DIR%%/var/log/hhvm/
+  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat -i %%PACKAGE_DIR%%/fakeroot.dat chown -R www-data:www-data %%PACKAGE_DIR%%/var/run/hhvm/
+  - rm %%PACKAGE_DIR%%/fakeroot.dat

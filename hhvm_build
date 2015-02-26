@@ -406,6 +406,12 @@ if __name__ == '__main__':
                     fpm.output_type = 'deb'
                     with log.info('Loading ' + DISTRO_DIR + '/DEBIAN/control...'):
                         fpm.LoadControl(DISTRO_DIR + '/DEBIAN/control')
+                        
+                    skeledir = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, skeletondirname)
+                    
+                    with log.info('Loading {}...'.format(skeledir)):
+                        fpm.LoadDebianDir(skeledir)
+                        
                     with log.info('Figuring out version number...'):
                         while True:
                             pkgVersion = version
@@ -420,14 +426,17 @@ if __name__ == '__main__':
                         
                     if build_type != 'dev':
                         with log.info('Determining package dependencies...'):
+                            fpm.dependencies = os_utils.GetDpkgShlibs([PACKAGE_DIR + '/usr/bin/hhvm'])
+                            '''
                             elf = ELFInfo(PACKAGE_DIR + '/usr/bin/hhvm')
                             with log.info('Loading ELF info...'):
                                 elf.Load()
                                 elf.Close()
                                 log.info('elf.needed = ' + repr(elf.needed))
                             with log.info('Finding packages...'):
-                                fpm.dependencies = os_utils.DpkgSearchFiles(elf.needed)
-                                log.info('fpm.dependencies = ' + repr(fpm.dependencies))
+                                fpm.dependencies = os_utils.DpkgSearchFiles(elf.needed, strip_version=True)
+                            '''
+                            log.info('fpm.dependencies = ' + repr(fpm.dependencies))
                                 
                     with log.info('Running FPM...'):
                         fpm.version = str(version)
@@ -435,6 +444,7 @@ if __name__ == '__main__':
                         fpm.name = pkgname
                         #fpm.provides = ['hhvm'+suffix]
                         fpm.conflicts = conflicts
+                        fpm.configs += ['etc/']
                         fpm.iteration = iteration
                         fpm.replaces = replaces
                         fpm.inputs = ['.']
