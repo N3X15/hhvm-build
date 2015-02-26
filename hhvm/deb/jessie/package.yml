@@ -30,9 +30,9 @@ make-workspace:
   - if:
     - file-exists: '%%SOURCE_DIR%%/hphp/hack/bin/h2tp'
     then:
-      - cp %%SOURCE_DIR%%/hphp/hack/bin/h2tp %%PACKAGE_DIR%%/root/usr/bin/
-      - chmod 755 %%PACKAGE_DIR%%/root/usr/bin/h2tp
-      - mkdir -p %%PACKAGE_DIR%%/root/usr/share/hhvm/hack/
+      - cp %%SOURCE_DIR%%/hphp/hack/bin/h2tp %%PACKAGE_DIR%%/usr/bin/
+      - chmod 755 %%PACKAGE_DIR%%/usr/bin/h2tp
+      - mkdir -p %%PACKAGE_DIR%%/usr/share/hhvm/hack/
       - cp -r %%SOURCE_DIR%%/hphp/hack/src/h2tp/resources %%PACKAGE_DIR%%/usr/share/hhvm/hack/hacklib
   - mkdir -p %%PACKAGE_DIR%%/usr/share/hhvm/hack/
   - cp -r %%SOURCE_DIR%%/hphp/hack/editor-plugins/emacs %%PACKAGE_DIR%%/usr/share/hhvm/hack/
