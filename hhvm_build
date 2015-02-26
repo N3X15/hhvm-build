@@ -410,7 +410,7 @@ if __name__ == '__main__':
                     skeledir = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, skeletondirname)
                     
                     with log.info('Loading {}...'.format(skeledir)):
-                        fpm.LoadDebianDirectory(skeledir)
+                        fpm.LoadDebianDirectory(os.path.join(skeledir,"DEBIAN"))
                         
                     with log.info('Figuring out version number...'):
                         while True:
