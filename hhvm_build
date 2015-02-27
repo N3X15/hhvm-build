@@ -426,7 +426,8 @@ if __name__ == '__main__':
                         
                     if build_type != 'dev':
                         with log.info('Determining package dependencies...'):
-                            fpm.dependencies = os_utils.GetDpkgShlibs([PACKAGE_DIR + '/usr/bin/hhvm'])
+                            shlib_data = os_utils.GetDpkgShlibs([PACKAGE_DIR + '/usr/bin/hhvm'])
+                            fpm.dependencies = shlib_data['Depends']
                             '''
                             elf = ELFInfo(PACKAGE_DIR + '/usr/bin/hhvm')
                             with log.info('Loading ELF info...'):
