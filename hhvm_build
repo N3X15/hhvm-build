@@ -69,6 +69,7 @@ def handleChdir(operators, pkg_cfg, var_replacements):
             newdir = os.path.abspath(args[0])
             if operator == 'dir':
                 if not os.path.isdir(newdir): 
+                    log.warn('Directory %s does not exist, cannot chdir.',newdir)
                     return (False,None)
                 else:
                     os.chdir(newdir)
