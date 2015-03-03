@@ -58,20 +58,26 @@ def handleIf(operators, pkg_cfg, var_replacements):
 def handleChdir(operators, pkg_cfg, var_replacements):
     if len(operators):
         origpath=os.path.abspath(os.getcwd())
+        def jumpBack():
+            log.info('cd %s',origpath)
+            os.chdir(origpath)
         for expr in operators:
             (operator, args) = dictToTuples(expr)[0]
             if isinstance(args, str):
                 args = args.split(' ')
             args = [replace_vars(arg, var_replacements) for arg in args]
+            newdir = os.path.abspath(args[0])
             if operator == 'dir':
-                if not os.path.isdir(args[0]): 
+                if not os.path.isdir(newdir): 
                     return (False,None)
                 else:
-                    os.chdir(args[0])
-                    return (True,lambda: os.chdir(origpath))
+                    os.chdir(newdir)
+                    log.info('cd %s',newdir)
+                    return (True,jumpBack)
             else:
                 log.warn('Invalid operator %s', operator)
-        return (True,lambda: os.chdir(origpath))
+        log.info('cd %s',args[0])
+        return (True,jumpBack)
     else:
         return (False,None)
     
