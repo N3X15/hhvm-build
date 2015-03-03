@@ -218,7 +218,7 @@ if __name__ == '__main__':
     DISTRO_DIR = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE)
     
     HHVM_VERSION = args.version
-    SOURCE_DIR = args.hhvm_job
+    SOURCE_DIR = os.path.abspath(args.hhvm_job)
     
     if not os.path.isdir(DISTRO_DIR):
         logging.fatal('Directory {0} doesn\'t exist.'.format(DISTRO_DIR))
