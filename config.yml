@@ -42,6 +42,6 @@ env:
 paths:
   install: /tmp/hhvm-install
   package: /tmp/hhvm-package
-  source: ../hhvm
+  source: ./hhvm_src
   exts:
     hhvm-pgsql: git@github.com:N3X15/hhvm-pgsql.git

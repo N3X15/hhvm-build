@@ -3,6 +3,10 @@
 ##
 ## This file is sourced by /bin/sh from /etc/init.d/hhvm.
 
+## Uncomment to disable using HHVM from init.d scripts.
+## Useful for people already using supervisor, etc.
+#DISABLE_HHVM=1
+
 ## Configuration file location.
 ## Default: "/etc/hhvm/server.ini"
 ## Examples:

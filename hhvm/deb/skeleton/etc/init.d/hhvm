@@ -32,6 +32,7 @@ SYSTEM_CONFIG_FILE="/etc/hhvm/php.ini"
 RUN_AS_USER="www-data"
 RUN_AS_GROUP="www-data"
 ADDITIONAL_ARGS=""
+DISABLE_HHVM=0
 
 # Read configuration variable file if it is present
 [ -r /etc/default/$NAME ] && . /etc/default/$NAME
@@ -123,6 +124,11 @@ do_reload() {
 
 case "$1" in
   start)
+        if [$DISABLE_HHVM -eq 1]; then
+            echo "HHVM service is disabled.  Please check /etc/default/hhvm.""  
+            exit 3
+        fi
+        
         check_run_dir
         [ "$VERBOSE" != no ] && log_daemon_msg "Starting $DESC" "$NAME"
         do_start
@@ -132,6 +138,11 @@ case "$1" in
         esac
         ;;
   stop)
+        # Always permit shutting down.
+        #if [$DISABLE_HHVM -eq 1]; then
+        #    echo "HHVM service is disabled.  Please check /etc/default/hhvm.""  
+        #    exit 3
+        #fi
         [ "$VERBOSE" != no ] && log_daemon_msg "Stopping $DESC" "$NAME"
         do_stop
         case "$?" in
