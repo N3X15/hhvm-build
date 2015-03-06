@@ -2,10 +2,10 @@
 
 set -e 
 
-if [ -f /etc/init.d/hhvm ]
-then
-	/etc/init.d/hhvm stop
-fi
+#if [ -f /etc/init.d/hhvm ]
+#then
+#	/etc/init.d/hhvm stop
+#fi
 
 echo "********************************************************************"
 echo "* HHVM is being removed. You can remove it from your webserver with:"
