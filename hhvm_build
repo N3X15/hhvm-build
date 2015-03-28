@@ -12,6 +12,7 @@ sys.path.append(os.path.join(script_dir, 'lib', 'buildtools'))
 from buildtools import *
 from buildtools import os_utils
 from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, configure_distcc
+from buildtools.wrapper.git import GitRepository
 from buildtools.posix.elf import ELFInfo
 
 def bool2yn(b):
@@ -289,6 +290,9 @@ if __name__ == '__main__':
     NIGHTLY_DATE = datetime.datetime.utcnow().strftime('%Y.%m.%d')
     iteration = int(os.environ.get('BUILD_NUMBER', '1'))
     # NIGHTLY_DATE += '.{:02d}'.format(iteration)
+    
+    repo = GitRepository(SOURCE_DIR, None)
+    
     with Chdir(SOURCE_DIR) as sourcedir:
         with log.info('Compile environment:'):
             cmd(['uname', '-a'], echo=False)
@@ -305,8 +309,11 @@ if __name__ == '__main__':
             sys.exit(1)
         if rebuild:
             with log.info('Preparing to compile...'):
+                
+                branch=''
                 if NIGHTLY:
-                    cmd('git checkout origin/master'.split(), critical=True)
+                    branch='master'
+                    #cmd('git checkout origin/master'.split(), critical=True)
                     REG_VERSION = re.compile(r'([0-9.]*-dev)')
                     version_file = ''
                     with open('hphp/system/idl/constants.idl.json', 'r') as f:
@@ -315,15 +322,18 @@ if __name__ == '__main__':
                         f.write(REG_VERSION.sub('\1+' + NIGHTLY_DATE, version_file))
                     log.info('Version set.')
                 else:
-                    cmd(['git', 'checkout', 'HHVM-' + HHVM_VERSION], critical=True)
+                    branch='HHVM-{}'.format(HHVM_VERSION)
+                    #cmd(['git', 'checkout', 'HHVM-' + HHVM_VERSION], critical=True)
                     
-                if not args.disable_git_clean:
-                    cmd('git clean -fdx'.split(' '))
-                
-                cmd('git submodule update --init --recursive'.split(' '), critical=True)
+                repo.Pull(remote='origin',branch=branch,cleanup=not args.disable_git_clean)
+                repo.updateSubmodules()
     
                 distro_info = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE, 'package.yml')
-                distro_cfg = Config(distro_info, {})
+                distro_cfg = Config(distro_info, variables= {
+                    'SOURCE_DIR':SOURCE_DIR,
+                    'DISTRO_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
+                    'HHVMBUILD_DIR':HHVMBUILD_DIR
+                })
                 if len(distro_cfg.get('prebuild', [])) > 0 :
                     log.info('Performing prebuild steps...')
                     origpath=os.path.abspath(os.getcwd())
@@ -377,7 +387,16 @@ if __name__ == '__main__':
                     
                 pkginfo_dir = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE+suffix)
                 
-                pkg_cfg = Config(os.path.join(pkginfo_dir, 'package.yml'), d_pkg_cfg)
+                pkg_cfg = Config(os.path.join(pkginfo_dir, 'package.yml'), d_pkg_cfg, variables={
+                    'SOURCE_DIR':SOURCE_DIR,
+                    'DISTRO_DIR':DISTRO_DIR,
+                    'INSTALL_DIR':INSTALL_DIR,
+                    'PACKAGE_DIR':PACKAGE_DIR,
+                    'DISTRO_DIR':DISTRO_DIR,
+                    'SKELETON_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, skeletondirname),
+                    'HHVMBUILD_DIR':HHVMBUILD_DIR,
+                    'ARCH': ARCH
+                })
                 with Chdir(SOURCE_DIR) as sourcedir:
                     cmd([cfg.get('bin.make', 'make'), 'install', 'DESTDIR=' + INSTALL_DIR], critical=True)
                         
@@ -393,16 +412,7 @@ if __name__ == '__main__':
                 
                 if len(pkg_cfg.get('make-workspace', [])) > 0 :
                     log.info('Prepping workspace{} for packaging...'.format(suffix))
-                    RunCommandsIn(pkg_cfg.get('make-workspace', []), pkg_cfg, {
-                        'SOURCE_DIR':SOURCE_DIR,
-                        'DISTRO_DIR':DISTRO_DIR,
-                        'INSTALL_DIR':INSTALL_DIR,
-                        'PACKAGE_DIR':PACKAGE_DIR,
-                        'DISTRO_DIR':DISTRO_DIR,
-                        'SKELETON_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, skeletondirname),
-                        'HHVMBUILD_DIR':HHVMBUILD_DIR,
-                        'ARCH': ARCH
-                    });
+                    RunCommandsIn(pkg_cfg.get('make-workspace', []), pkg_cfg, {});
 
                 package = ''
                 pkgVersion = ''

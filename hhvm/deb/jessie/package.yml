@@ -2,42 +2,42 @@ prebuild:
   # Import compile fix since Facebook wants me to waste my time with an issue report, which will be followed by a lengthy review period.
   # Why am I against an issue report?  Because it's a fucking three-line fix.
   - chdir:
-      - dir: '%%SOURCE_DIR%%/third-party/webscalesqlclient/webscalesql-5.6'
+      - dir: '{{ SOURCE_DIR }}/third-party/webscalesqlclient/webscalesql-5.6'
     then:
       - git reset --hard
       - git pull origin webscalesql-5.6.23
 make-workspace:
-  - cp -R %%HHVMBUILD_DIR%%/*.md %%PACKAGE_DIR%%/
-  - cp -r %%DISTRO_DIR%%/../skeleton/* %%PACKAGE_DIR%%/
-  #- cp -R %%DISTRO_DIR%%/DEBIAN %%PACKAGE_DIR%%/
-  - cp -R %%DISTRO_DIR%%/usr %%PACKAGE_DIR%%/
-  - echo Checking for %%PACKAGE_DIR%%/deps...
+  - cp -R {{ HHVMBUILD_DIR }}/*.md {{ PACKAGE_DIR }}/
+  - cp -r {{ DISTRO_DIR }}/../skeleton/* {{ PACKAGE_DIR }}/
+  #- cp -R {{ DISTRO_DIR }}/DEBIAN {{ PACKAGE_DIR }}/
+  - cp -R {{ DISTRO_DIR }}/usr {{ PACKAGE_DIR }}/
+  - echo Checking for {{ PACKAGE_DIR }}/deps...
   - if: 
-    - file-exists: '%%PACKAGE_DIR%%/deps'
+    - file-exists: '{{ PACKAGE_DIR }}/deps'
     then:
-      - rm %%PACKAGE_DIR%%/deps
-  - mkdir -p %%PACKAGE_DIR%%/usr/bin/
-  - cp %%SOURCE_DIR%%/hphp/hhvm/hhvm %%PACKAGE_DIR%%/usr/bin/
-  - chmod 755 %%PACKAGE_DIR%%/usr/bin/hhvm
+      - rm {{ PACKAGE_DIR }}/deps
+  - mkdir -p {{ PACKAGE_DIR }}/usr/bin/
+  - cp {{ SOURCE_DIR }}/hphp/hhvm/hhvm {{ PACKAGE_DIR }}/usr/bin/
+  - chmod 755 {{ PACKAGE_DIR }}/usr/bin/hhvm
   - echo Checking for hh_server...
   - if: 
-    - file-exists: '%%SOURCE_DIR%%/hphp/hack/bin/hh_server'
+    - file-exists: '{{ SOURCE_DIR }}/hphp/hack/bin/hh_server'
     then:
-      - cp %%SOURCE_DIR%%/hphp/hack/bin/hh_client %%PACKAGE_DIR%%/usr/bin/
-      - cp %%SOURCE_DIR%%/hphp/hack/bin/hh_server %%PACKAGE_DIR%%/usr/bin/
-      - chmod 755 %%PACKAGE_DIR%%/usr/bin/hh_client
-      - chmod 755 %%PACKAGE_DIR%%/usr/bin/hh_server
+      - cp {{ SOURCE_DIR }}/hphp/hack/bin/hh_client {{ PACKAGE_DIR }}/usr/bin/
+      - cp {{ SOURCE_DIR }}/hphp/hack/bin/hh_server {{ PACKAGE_DIR }}/usr/bin/
+      - chmod 755 {{ PACKAGE_DIR }}/usr/bin/hh_client
+      - chmod 755 {{ PACKAGE_DIR }}/usr/bin/hh_server
   - if:
-    - file-exists: '%%SOURCE_DIR%%/hphp/hack/bin/h2tp'
+    - file-exists: '{{ SOURCE_DIR }}/hphp/hack/bin/h2tp'
     then:
-      - cp %%SOURCE_DIR%%/hphp/hack/bin/h2tp %%PACKAGE_DIR%%/usr/bin/
-      - chmod 755 %%PACKAGE_DIR%%/usr/bin/h2tp
-      - mkdir -p %%PACKAGE_DIR%%/usr/share/hhvm/hack/
-      - cp -r %%SOURCE_DIR%%/hphp/hack/src/h2tp/resources %%PACKAGE_DIR%%/usr/share/hhvm/hack/hacklib
-  - mkdir -p %%PACKAGE_DIR%%/usr/share/hhvm/hack/
-  - cp -r %%SOURCE_DIR%%/hphp/hack/editor-plugins/emacs %%PACKAGE_DIR%%/usr/share/hhvm/hack/
-  - cp -r %%SOURCE_DIR%%/hphp/hack/editor-plugins/vim %%PACKAGE_DIR%%/usr/share/hhvm/hack/
-  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat chown -R root:root %%PACKAGE_DIR%%/
-  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat -i %%PACKAGE_DIR%%/fakeroot.dat chown -R www-data:www-data %%PACKAGE_DIR%%/var/log/hhvm/
-  - fakeroot -s %%PACKAGE_DIR%%/fakeroot.dat -i %%PACKAGE_DIR%%/fakeroot.dat chown -R www-data:www-data %%PACKAGE_DIR%%/var/run/hhvm/
-  - rm %%PACKAGE_DIR%%/fakeroot.dat
+      - cp {{ SOURCE_DIR }}/hphp/hack/bin/h2tp {{ PACKAGE_DIR }}/usr/bin/
+      - chmod 755 {{ PACKAGE_DIR }}/usr/bin/h2tp
+      - mkdir -p {{ PACKAGE_DIR }}/usr/share/hhvm/hack/
+      - cp -r {{ SOURCE_DIR }}/hphp/hack/src/h2tp/resources {{ PACKAGE_DIR }}/usr/share/hhvm/hack/hacklib
+  - mkdir -p {{ PACKAGE_DIR }}/usr/share/hhvm/hack/
+  - cp -r {{ SOURCE_DIR }}/hphp/hack/editor-plugins/emacs {{ PACKAGE_DIR }}/usr/share/hhvm/hack/
+  - cp -r {{ SOURCE_DIR }}/hphp/hack/editor-plugins/vim {{ PACKAGE_DIR }}/usr/share/hhvm/hack/
+  - fakeroot -s {{ PACKAGE_DIR }}/fakeroot.dat chown -R root:root {{ PACKAGE_DIR }}/
+  - fakeroot -s {{ PACKAGE_DIR }}/fakeroot.dat -i {{ PACKAGE_DIR }}/fakeroot.dat chown -R www-data:www-data {{ PACKAGE_DIR }}/var/log/hhvm/
+  - fakeroot -s {{ PACKAGE_DIR }}/fakeroot.dat -i {{ PACKAGE_DIR }}/fakeroot.dat chown -R www-data:www-data {{ PACKAGE_DIR }}/var/run/hhvm/
+  - rm {{ PACKAGE_DIR }}/fakeroot.dat
