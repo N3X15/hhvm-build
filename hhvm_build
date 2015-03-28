@@ -330,7 +330,7 @@ if __name__ == '__main__':
                 repo.UpdateSubmodules()
     
                 distro_info = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE, 'package.yml')
-                distro_cfg = Config(distro_info, variables= {
+                distro_cfg = Config(distro_info, template_dir='/', variables= {
                     'SOURCE_DIR':SOURCE_DIR,
                     'DISTRO_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
                     'HHVMBUILD_DIR':HHVMBUILD_DIR
