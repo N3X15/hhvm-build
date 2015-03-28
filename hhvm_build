@@ -324,9 +324,9 @@ if __name__ == '__main__':
                 else:
                     branch='HHVM-{}'.format(HHVM_VERSION)
                     #cmd(['git', 'checkout', 'HHVM-' + HHVM_VERSION], critical=True)
-                
+                repo.quiet=False
                 repo.CheckForUpdates(remote='origin',branch=branch, quiet=False)
-                repo.Pull(remote='origin',branch=branch,cleanup=not args.disable_git_clean, quiet=False)
+                repo.Pull(remote='origin',branch=branch,cleanup=not args.disable_git_clean)
                 repo.UpdateSubmodules()
     
                 distro_info = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE, 'package.yml')
