@@ -58,9 +58,9 @@ def handleIf(operators, pkg_cfg, var_replacements):
 
 def handleChdir(operators, pkg_cfg, var_replacements):
     if len(operators):
-        origpath=os.path.abspath(os.getcwd())
+        origpath = os.path.abspath(os.getcwd())
         def jumpBack():
-            log.info('cd %s',origpath)
+            log.info('cd %s', origpath)
             os.chdir(origpath)
         for expr in operators:
             (operator, args) = dictToTuples(expr)[0]
@@ -70,18 +70,18 @@ def handleChdir(operators, pkg_cfg, var_replacements):
             newdir = os.path.abspath(args[0])
             if operator == 'dir':
                 if not os.path.isdir(newdir): 
-                    log.warn('Directory %s does not exist, cannot chdir.',newdir)
-                    return (False,None)
+                    log.warn('Directory %s does not exist, cannot chdir.', newdir)
+                    return (False, None)
                 else:
                     os.chdir(newdir)
-                    log.info('cd %s',newdir)
-                    return (True,jumpBack)
+                    log.info('cd %s', newdir)
+                    return (True, jumpBack)
             else:
                 log.warn('Invalid operator %s', operator)
-        log.info('cd %s',args[0])
-        return (True,jumpBack)
+        log.info('cd %s', args[0])
+        return (True, jumpBack)
     else:
-        return (False,None)
+        return (False, None)
     
 def RunCommandsIn(commandlist, pkg_cfg, var_replacements):
     if len(commandlist) == 0: return
@@ -310,10 +310,10 @@ if __name__ == '__main__':
         if rebuild:
             with log.info('Preparing to compile...'):
                 
-                branch=''
+                branch = ''
                 if NIGHTLY:
-                    branch='master'
-                    #cmd('git checkout origin/master'.split(), critical=True)
+                    branch = 'master'
+                    # cmd('git checkout origin/master'.split(), critical=True)
                     REG_VERSION = re.compile(r'([0-9.]*-dev)')
                     version_file = ''
                     with open('hphp/system/idl/constants.idl.json', 'r') as f:
@@ -322,22 +322,23 @@ if __name__ == '__main__':
                         f.write(REG_VERSION.sub('\1+' + NIGHTLY_DATE, version_file))
                     log.info('Version set.')
                 else:
-                    branch='HHVM-{}'.format(HHVM_VERSION)
-                    #cmd(['git', 'checkout', 'HHVM-' + HHVM_VERSION], critical=True)
-                repo.quiet=False
-                repo.CheckForUpdates(remote='origin',branch=branch, quiet=False)
-                repo.Pull(remote='origin',branch=branch,cleanup=not args.disable_git_clean)
+                    branch = 'HHVM-{}'.format(HHVM_VERSION)
+                    # cmd(['git', 'checkout', 'HHVM-' + HHVM_VERSION], critical=True)
+                    
+                repo.quiet = False
+                repo.CheckForUpdates(remote='origin', branch=branch, quiet=False)
+                repo.Pull(remote='origin', branch=branch, cleanup=not args.disable_git_clean)
                 repo.UpdateSubmodules()
     
                 distro_info = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE, 'package.yml')
-                distro_cfg = Config(distro_info, template_dir='/', variables= {
+                distro_cfg = Config(distro_info, template_dir='/', variables={
                     'SOURCE_DIR':SOURCE_DIR,
                     'DISTRO_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
                     'HHVMBUILD_DIR':HHVMBUILD_DIR
                 })
                 if len(distro_cfg.get('prebuild', [])) > 0 :
                     log.info('Performing prebuild steps...')
-                    origpath=os.path.abspath(os.getcwd())
+                    origpath = os.path.abspath(os.getcwd())
                     RunCommandsIn(distro_cfg.get('prebuild', []), distro_cfg, {
                         'SOURCE_DIR':SOURCE_DIR,
                         'DISTRO_DIR':os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
@@ -356,12 +357,12 @@ if __name__ == '__main__':
             sys.exit(1)
         
     if cfg.get('env.packaging.enabled', False):
-        stdout,stderr = cmd_output('dpkg-architecture -qDEB_BUILD_GNU_TYPE'.split(),critical=True,echo=False)
-        ARCH = (stdout+stderr).strip()
+        stdout, stderr = cmd_output('dpkg-architecture -qDEB_BUILD_GNU_TYPE'.split(), critical=True, echo=False)
+        ARCH = (stdout + stderr).strip()
         
-        for build_type in ['main','dev']:
+        for build_type in ['main', 'dev']:
             if build_type == 'dev': 
-                DEVONLY=True
+                DEVONLY = True
                 if DEBUG: continue
                 
             pkgname = 'hhvm'
@@ -386,9 +387,9 @@ if __name__ == '__main__':
                     
                 skeletondirname += suffix
                     
-                pkginfo_dir = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE+suffix)
+                pkginfo_dir = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE + suffix)
                 
-                pkg_cfg = Config(os.path.join(pkginfo_dir, 'package.yml'), d_pkg_cfg, variables={
+                pkg_cfg = Config(os.path.join(pkginfo_dir, 'package.yml'), d_pkg_cfg, template_dir='/', variables={
                     'SOURCE_DIR':SOURCE_DIR,
                     'DISTRO_DIR':DISTRO_DIR,
                     'INSTALL_DIR':INSTALL_DIR,
@@ -428,7 +429,7 @@ if __name__ == '__main__':
                     skeledir = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, skeletondirname)
                     
                     with log.info('Loading {}...'.format(skeledir)):
-                        fpm.LoadDebianDirectory(os.path.join(skeledir,"DEBIAN"))
+                        fpm.LoadDebianDirectory(os.path.join(skeledir, "DEBIAN"))
                         
                     with log.info('Figuring out version number...'):
                         while True:
@@ -461,7 +462,7 @@ if __name__ == '__main__':
                         fpm.version = str(version)
                         fpm.maintainer = cfg.get('env.packaging.maintainer', 'NOT SET <lol@idk.local>')
                         fpm.name = pkgname
-                        #fpm.provides = ['hhvm'+suffix]
+                        # fpm.provides = ['hhvm'+suffix]
                         fpm.conflicts = conflicts
                         fpm.configs += ['etc/']
                         fpm.iteration = iteration
@@ -477,6 +478,6 @@ if __name__ == '__main__':
                     with log.info('Generating repository cache...'):
                         cmd(['freight-cache', '-p', '~/.gpass'])
     
-    #extcfg = cfg.get('paths.exts',{})
-    #for name, extpath in extcfg:
+    # extcfg = cfg.get('paths.exts',{})
+    # for name, extpath in extcfg:
     #    buildExt(name, extpath)
