@@ -11,7 +11,7 @@ env:
     enabled: false
   cotire:
     # Buggy
-    enabled: false
+    enabled: true 
   distcc:
     # For local network builds. - N3X
     enabled: false
@@ -51,7 +51,7 @@ env:
       debian/wheezy: false
     # Requires ~/.gpass, with your passkey inside.
     repo-deploy: true
-      
+
 paths:
   install: /tmp/hhvm-install
   package: /tmp/hhvm-package
