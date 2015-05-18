@@ -19,7 +19,7 @@ script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(script_dir, 'lib', 'buildtools'))
 
 from buildtools import *
-from buildtools import os_utils
+from buildtools import os_utils, http
 from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, configure_distcc
 from buildtools.repo.git import GitRepository
 from buildtools.posix.elf import ELFInfo
@@ -154,6 +154,10 @@ class Extension:
     self.repo = None
     self.deployables = {}
     self.dir = os.path.join(script_dir, 'exts', self.id)
+    self.repo_dir = os.path.join(self.dir, 'repo')
+    self.patch_dir = os.path.join(self.dir, 'patches')
+    self.branch = ''
+    self.remote = ''
 
     self.LoadConfig()
 
@@ -169,10 +173,38 @@ class Extension:
           'HHVMBUILD_DIR': HHVMBUILD_DIR,
           'ARCH': ARCH,
           'EXT_DIR': self.dir,
+          'EXT_SOURCE_DIR': self.repo_dir,
       })
+      repotype = self.config.get('repo.type')
+      self.branch = self.config.get('repo.branch', 'master')
+      self.remote = self.config.get('repo.remote')
+      if repotype == 'git':
+        self.repo = GitRepository(self.repo_dir, self.remote, quiet=False, noisy_clone=True)
 
-  def compile(self):
-    return
+      self.patches = self.config.get('patches', {})
+
+  def build(self):
+    with log.info('Checking repo for updates...'):
+      self.repo.quiet = False
+      self.repo.CheckForUpdates(remote='origin', branch=branch, quiet=False)
+      self.repo.Pull(remote='origin', branch=branch, cleanup=False)
+      self.repo.UpdateSubmodules()
+    if len(self.patches) > 0:
+      os_utils.ensureDirExists(self.patch_dir, quiet=False)
+      with log.info('Applying patches...'):
+        for patchID, patchURL in self.patches.items():
+          patchPath = os.path.join(self.patch_dir, patchID + '.patch')
+          http.DownloadFile(patchURL, patchPath)
+          if not cmd(['git', 'apply', '--check', patchPath], echo=True, critical=True):
+            sys.exit(1)
+          if not cmd(['git', 'apply', patchPath], echo=True, critical=True):
+            sys.exit(1)
+    with log.info('Configuring...'):
+      if not cmake.run(cfg.get('bin.cmake', 'cmake')):
+        sys.exit(1)
+    with log.info('Compiling...'):
+      if not cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, critical=True, echo=True):
+        sys.exit(1)
 
 if __name__ == '__main__':
   import argparse
@@ -533,6 +565,13 @@ if __name__ == '__main__':
 
           with log.info('Generating repository cache...'):
             cmd(['freight-cache', '-p', '~/.gpass'])
+
+    with log.info('Compiling extensions...'):
+      for extID in cfg.get('paths.exts', []):
+        ext = Extension(extID)
+        with log.info('%s...', extID):
+          with Chdir(ext.dir):
+            ext.build()
 
   # extcfg = cfg.get('paths.exts',{})
   # for name, extpath in extcfg:

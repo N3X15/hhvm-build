@@ -10,8 +10,8 @@ env:
     # Causes problems
     enabled: false
   cotire:
-    # Buggy
-    enabled: true 
+    # Buggy, will cause false sqlite3 errors if enabled.
+    enabled: false
   distcc:
     # For local network builds. - N3X
     enabled: false
