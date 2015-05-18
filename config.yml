@@ -2,25 +2,38 @@ bin:
   asm: cc
   cc: gcc-4.8
   ccache: ccache
-  cxx: g++-4.8
+  cxx: 'g++-4.8'
   make: make
   pump: distcc-pump
 env:
   ccache:
+    # Causes problems
     enabled: false
   cotire:
+    # Buggy
     enabled: false
   distcc:
     # For local network builds. - N3X
     enabled: false
     hosts:
+      # VirtualBox VM
+      # Only one core.
       192.168.9.139:
         max-jobs: 1
         opts:
         - lzo
         - cpp
+      # Master - 2U Supermicro (Debian)
+      # 8 cores
       localhost:
-        max-jobs: 5
+        max-jobs: 5 # (ChanMan takes up two cores)
+        opts:
+        - lzo
+        - cpp
+      # Master - Lenovo U550 (Kubuntu/Windows)
+      # 2 cores?
+      Rob-Laptop:
+        max-jobs: 2
         opts:
         - lzo
         - cpp
@@ -44,4 +57,4 @@ paths:
   package: /tmp/hhvm-package
   source: ./hhvm_src
   exts:
-    hhvm-pgsql: git@github.com:N3X15/hhvm-pgsql.git
+    - hhvm-pgsql
