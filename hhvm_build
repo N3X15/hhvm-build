@@ -145,6 +145,35 @@ def CloneOrPull(id, uri, dir):
   with os_utils.Chdir(dir):
     log.info('{} is now at commit {}.'.format(id, Git.GetCommit()))
 
+
+class Extension:
+
+  def __init__(self, _id):
+    self.id = _id
+    self.config = {}
+    self.repo = None
+    self.deployables = {}
+    self.dir = os.path.join(script_dir, 'exts', self.id)
+
+    self.LoadConfig()
+
+  def LoadConfig(self):
+    with log.info('Loading %s configuration...', self.id):
+      self.config = Config(os.path.join(self.dir, 'config.yml'), {}, template_dir='/', variables={
+          'SOURCE_DIR': SOURCE_DIR,
+          'DISTRO_DIR': DISTRO_DIR,
+          'INSTALL_DIR': INSTALL_DIR,
+          'PACKAGE_DIR': PACKAGE_DIR,
+          'DISTRO_DIR': DISTRO_DIR,
+          'SKELETON_DIR': os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, skeletondirname),
+          'HHVMBUILD_DIR': HHVMBUILD_DIR,
+          'ARCH': ARCH,
+          'EXT_DIR': self.dir,
+      })
+
+  def compile(self):
+    return
+
 if __name__ == '__main__':
   import argparse
 
