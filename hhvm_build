@@ -371,7 +371,7 @@ if __name__ == '__main__':
   configure_distcc(cfg, cmake)
   configure_cotire(cfg, cmake)
 
-  job_flag = '-j' + str(cfg.get('env.cmake.jobs', 1))
+  job_flag = '-j' + str(cfg.get('env.make.jobs', 1))
   MAKE_FLAGS += [job_flag]
   NIGHTLY_DATE = datetime.datetime.utcnow().strftime('%Y.%m.%d')
   iteration = int(os.environ.get('BUILD_NUMBER', '1'))
