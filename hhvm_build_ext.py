@@ -131,7 +131,7 @@ if __name__ == '__main__':
   HHVMBUILD_DIR = os.getcwd()
   DISTRO_DIR = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE)
 
-  HHVM_VERSION = args.version
+  #HHVM_VERSION = args.version
   SOURCE_DIR = args.workspace
 
   if not os.path.isdir(DISTRO_DIR):
