@@ -25,7 +25,6 @@ from buildtools import os_utils
 from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, configure_distcc
 from buildtools.posix.elf import ELFInfo
 
-
 class Extension:
 
   def __init__(self, _id):
