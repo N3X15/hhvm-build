@@ -556,7 +556,8 @@ if __name__ == '__main__':
             fpm.name = pkgname
             # fpm.provides = ['hhvm'+suffix]
             fpm.conflicts = conflicts
-            fpm.configs += ['etc/']
+            if buildtype != 'dev':
+              fpm.configs += ['etc/']
             fpm.iteration = iteration
             fpm.replaces = replaces
             fpm.inputs = ['.']
