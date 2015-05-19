@@ -112,7 +112,7 @@ if __name__ == '__main__':
 
   args = argp.parse_args()
 
-  cfg = Config(args.config, d_cfg)
+  cfg = Config(args.config, {})
 
   if args.disable_ccache:
     cfg['env']['ccache']['enable'] = False
