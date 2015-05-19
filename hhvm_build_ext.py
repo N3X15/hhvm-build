@@ -25,6 +25,7 @@ from buildtools import os_utils
 from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, configure_distcc
 from buildtools.posix.elf import ELFInfo
 
+
 class Extension:
 
   def __init__(self, _id):
@@ -90,12 +91,13 @@ class Extension:
           sys.exit(1)
 
 if __name__ == '__main__':
+    import argparse
   argp = argparse.ArgumentParser(prog='hhvm_build_ext', description='Build HHVM extension')
 
   argp.add_argument('distro', type=str, help='Linux Distribution (deb, etc)')
   argp.add_argument('release', type=str, help='OS Release codename (precise, etc)')
 
-  argp.add_argument('workspace', type=str, help='Extension\'s Jenkins workspace')
+  argp.add_argument('extID', type=str, help='Extension\'s ID in config.yml')
 
   argp.add_argument('-c', '--config', type=str, default='config.yml', help='YAML file to read configuration from.')
 
