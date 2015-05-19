@@ -15,7 +15,7 @@ import subprocess
 import datetime
 import glob
 
-from hhvm_build import *
+#from hhvm_build import *
 
 script_dir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(script_dir, 'lib', 'buildtools'))
@@ -91,7 +91,7 @@ class Extension:
           sys.exit(1)
 
 if __name__ == '__main__':
-    import argparse
+  import argparse
   argp = argparse.ArgumentParser(prog='hhvm_build_ext', description='Build HHVM extension')
 
   argp.add_argument('distro', type=str, help='Linux Distribution (deb, etc)')
