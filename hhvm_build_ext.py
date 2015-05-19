@@ -23,7 +23,7 @@ sys.path.append(os.path.join(script_dir, 'lib', 'buildtools'))
 from buildtools import *
 from buildtools import os_utils
 from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, configure_distcc
-from buildtools.posix.elf import ELFInfo
+from buildtools.repo.git import GitRepository
 
 
 class Extension:
