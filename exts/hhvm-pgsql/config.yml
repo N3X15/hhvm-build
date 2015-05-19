@@ -1,6 +1,6 @@
 repo:
   type: git
-  remote: git@github.com:N3X15/hhvm-pgsql.git
+  remote: https://github.com/PocketRent/hhvm-pgsql.git
 patches:
   PR-88: https://patch-diff.githubusercontent.com/raw/PocketRent/hhvm-pgsql/pull/88.patch
 deployables:
