@@ -184,30 +184,31 @@ class Extension:
       self.patches = self.config.get('patches', {})
 
   def build(self):
-    with log.info('Checking repo for updates...'):
-      self.repo.quiet = False
-      self.repo.CheckForUpdates(remote='origin', branch=branch, quiet=False)
-      self.repo.Pull(remote='origin', branch=branch, cleanup=False)
-      self.repo.UpdateSubmodules()
-    if len(self.patches) > 0:
-      os_utils.ensureDirExists(self.patch_dir, quiet=False)
-      with log.info('Applying patches...'):
-        for patchID, patchURL in self.patches.items():
-          patchPath = os.path.join(self.patch_dir, patchID + '.patch')
-          http.DownloadFile(patchURL, patchPath)
-          if not cmd(['git', 'apply', '--check', patchPath], echo=True, critical=True):
-            sys.exit(1)
-          if not cmd(['git', 'apply', patchPath], echo=True, critical=True):
-            sys.exit(1)
-    with log.info('Running hphpize...'):
-      if not cmd([cfg.get('bin.hphpize', 'hphpize')], critical=True, echo=True):
-        sys.exit(1)
-    with log.info('Configuring...'):
-      if not cmake.run(cfg.get('bin.cmake', 'cmake')):
-        sys.exit(1)
-    with log.info('Compiling...'):
-      if not cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, critical=True, echo=True):
-        sys.exit(1)
+    with Chdir(self.repo_dir):
+      with log.info('Checking repo for updates...'):
+        self.repo.quiet = False
+        self.repo.CheckForUpdates(remote='origin', branch=branch, quiet=False)
+        self.repo.Pull(remote='origin', branch=branch, cleanup=False)
+        self.repo.UpdateSubmodules()
+      if len(self.patches) > 0:
+        os_utils.ensureDirExists(self.patch_dir, quiet=False)
+        with log.info('Applying patches...'):
+          for patchID, patchURL in self.patches.items():
+            patchPath = os.path.join(self.patch_dir, patchID + '.patch')
+            http.DownloadFile(patchURL, patchPath)
+            if not cmd(['git', 'apply', '--check', patchPath], echo=True, critical=True):
+              sys.exit(1)
+            if not cmd(['git', 'apply', patchPath], echo=True, critical=True):
+              sys.exit(1)
+      with log.info('Running hphpize...'):
+        if not cmd([cfg.get('bin.hphpize', 'hphpize')], critical=True, echo=True):
+          sys.exit(1)
+      with log.info('Configuring...'):
+        if not cmake.run(cfg.get('bin.cmake', 'cmake')):
+          sys.exit(1)
+      with log.info('Compiling...'):
+        if not cmd([cfg.get('bin.make', 'make')] + MAKE_FLAGS, critical=True, echo=True):
+          sys.exit(1)
 
 if __name__ == '__main__':
   import argparse
