@@ -25,7 +25,6 @@ from buildtools import os_utils
 from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, configure_distcc
 from buildtools.repo.git import GitRepository
 
-
 class Extension:
 
   def __init__(self, _id):
@@ -173,8 +172,8 @@ if __name__ == '__main__':
   configure_distcc(cfg, cmake)
   configure_cotire(cfg, cmake)
 
-  job_flag = '-j' + str(cfg.get('env.make.jobs', 1))
-  MAKE_FLAGS += [job_flag]
+  #job_flag = '-j' + str(cfg.get('env.make.jobs', 1))
+  #MAKE_FLAGS += [job_flag]
 
   with log.info('Compiling extension...'):
     with log.info('%s...', ext.id):
