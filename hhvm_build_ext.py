@@ -166,7 +166,7 @@ if __name__ == '__main__':
 
   MAKE_FLAGS = cfg.get('env.make.flags', [])
 
-  cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug' if DEBUG else 'Release')
+  cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug')
   cmake.setFlag('CMAKE_INSTALL_PREFIX', '/usr')
 
   configure_ccache(cfg, cmake)
