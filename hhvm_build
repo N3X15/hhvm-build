@@ -199,6 +199,9 @@ class Extension:
             sys.exit(1)
           if not cmd(['git', 'apply', patchPath], echo=True, critical=True):
             sys.exit(1)
+    with log.info('Running hphpize...'):
+      if not cmd([cfg.get('bin.hphpize', 'hphpize')], critical=True, echo=True):
+        sys.exit(1)
     with log.info('Configuring...'):
       if not cmake.run(cfg.get('bin.cmake', 'cmake')):
         sys.exit(1)
