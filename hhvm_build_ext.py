@@ -131,6 +131,10 @@ if __name__ == '__main__':
   HHVMBUILD_DIR = os.getcwd()
   DISTRO_DIR = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE)
 
+  stdout, stderr = cmd_output('dpkg-architecture -qDEB_BUILD_GNU_TYPE'.split(), critical=True, echo=False)
+  ARCH = (stdout + stderr).strip()
+  log.info('Building with ARCH=%r', ARCH)
+
   # HHVM_VERSION = args.version
   SOURCE_DIR = os.path.abspath(cfg.get('paths.source'))
   INSTALL_DIR = os.path.abspath(cfg.get('paths.install'))
