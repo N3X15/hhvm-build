@@ -67,8 +67,8 @@ class Extension:
     with Chdir(self.repo_dir):
       with log.info('Checking repo for updates...'):
         self.repo.quiet = False
-        self.repo.CheckForUpdates(remote='origin', branch=branch, quiet=False)
-        self.repo.Pull(remote='origin', branch=branch, cleanup=False)
+        self.repo.CheckForUpdates(remote='origin', branch=self.branch, quiet=False)
+        self.repo.Pull(remote='origin', branch=self.branch, cleanup=False)
         self.repo.UpdateSubmodules()
       if len(self.patches) > 0:
         os_utils.ensureDirExists(self.patch_dir, quiet=False)
@@ -178,5 +178,4 @@ if __name__ == '__main__':
 
   with log.info('Compiling extension...'):
     with log.info('%s...', ext.id):
-      with Chdir(ext.dir):
-        ext.build()
+      ext.build()
