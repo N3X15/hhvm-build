@@ -131,25 +131,20 @@ if __name__ == '__main__':
   HHVMBUILD_DIR = os.getcwd()
   DISTRO_DIR = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE)
 
-  #HHVM_VERSION = args.version
-  SOURCE_DIR = args.workspace
+  # HHVM_VERSION = args.version
+  SOURCE_DIR = os.path.abspath(cfg.get('paths.source'))
+  INSTALL_DIR = os.path.abspath(cfg.get('paths.install'))
+  PACKAGE_DIR = os.path.abspath(cfg.get('paths.package'))
 
-  if not os.path.isdir(DISTRO_DIR):
-    logging.fatal('Directory {0} doesn\'t exist.'.format(DISTRO_DIR))
+  ext = Extension(args.extID)
+
+  if not os.path.isdir(ext.dir):
+    log.info('Extension source code not found. ext.dir={}'.format(ext.dir))
     sys.exit(1)
-
-  if SOURCE_DIR is None or not os.path.isdir(SOURCE_DIR):
-    SOURCE_DIR = os.path.abspath(cfg.get('paths.source'))
 
   if not os.path.isdir(SOURCE_DIR):
-    log.info('Source code not found. SOURCE_DIR={}'.format(SOURCE_DIR))
+    log.info('HHVM source code not found. SOURCE_DIR={}'.format(SOURCE_DIR))
     sys.exit(1)
-
-  INSTALL_DIR = os.path.abspath(cfg.get('paths.install'))
-  mkdirOrClear(INSTALL_DIR)
-
-  PACKAGE_DIR = os.path.abspath(cfg.get('paths.package'))
-  mkdirOrClear(PACKAGE_DIR)
 
   ENV.merge({
       'CC': cfg.get('bin.cc', 'gcc-4.8'),
@@ -178,7 +173,6 @@ if __name__ == '__main__':
   MAKE_FLAGS += [job_flag]
 
   with log.info('Compiling extension...'):
-    ext = Extension(args.extID)
     with log.info('%s...', ext.id):
       with Chdir(ext.dir):
         ext.build()
