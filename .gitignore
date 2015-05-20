@@ -3,3 +3,4 @@
 description-pak/
 /*.bak
 *.bak
+*.pyc

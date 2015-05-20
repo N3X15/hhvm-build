@@ -156,7 +156,8 @@ if __name__ == '__main__':
 
       'CMAKE_INCLUDE_PATH': tempfile.mkstemp(),
       'CMAKE_LIBRARY_PATH': "/usr/lib/hhvm/",
-      'HPHP_HOME': SOURCE_DIR
+      'HPHP_HOME': SOURCE_DIR,
+      'MYSQL_UNIX_SOCK_ADDR':'/var/run/mysqld/mysqld.sock',
   })
 
   cmake = CMake()

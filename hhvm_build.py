@@ -288,15 +288,18 @@ if __name__ == '__main__':
   HHVM_VERSION = '-'.join(new_version_chunks)
   log.info('HHVM Version {} - Debug: {}, Dev: {}, Nightly: {}'.format(HHVM_VERSION, bool2yn(DEBUG), bool2yn(DEVONLY), bool2yn(NIGHTLY)))
 
-  ENV.merge({
+  env_ext = {
       'CC': cfg.get('bin.cc', 'gcc-4.8'),
       'CXX': cfg.get('bin.cxx', 'g++-4.8'),
       'ASM': cfg.get('bin.asm', 'cc'),
 
-      'CMAKE_INCLUDE_PATH': tempfile.mkstemp(),
+      'CMAKE_INCLUDE_PATH': tempfile.mkstemp().name,
       'CMAKE_LIBRARY_PATH': "/usr/lib/hhvm/",
-      'HPHP_HOME': SOURCE_DIR
-  })
+      'HPHP_HOME': SOURCE_DIR,
+      'MYSQL_UNIX_SOCK_ADDR': '/var/run/mysqld/mysqld.sock',
+  }
+
+  ENV.merge(env_ext)
 
   cmake = CMake()
   for k, v in cfg.get('env.cmake.flags', {}).items():
@@ -339,7 +342,6 @@ if __name__ == '__main__':
         branch = ''
         if NIGHTLY:
           branch = 'master'
-          # cmd('git checkout origin/master'.split(), critical=True)
           REG_VERSION = re.compile(r'([0-9.]*-dev)')
           version_file = ''
           with open('hphp/system/idl/constants.idl.json', 'r') as f:
@@ -349,7 +351,6 @@ if __name__ == '__main__':
           log.info('Version set.')
         else:
           branch = 'HHVM-{}'.format(HHVM_VERSION)
-          # cmd(['git', 'checkout', 'HHVM-' + HHVM_VERSION], critical=True)
 
         repo.quiet = False
         repo.CheckForUpdates(remote='origin', branch=branch, quiet=False)
@@ -475,15 +476,6 @@ if __name__ == '__main__':
             with log.info('Determining package dependencies...'):
               shlib_data = os_utils.GetDpkgShlibs([PACKAGE_DIR + '/usr/bin/hhvm'])
               fpm.dependencies = shlib_data['Depends']
-              '''
-              elf = ELFInfo(PACKAGE_DIR + '/usr/bin/hhvm')
-              with log.info('Loading ELF info...'):
-                  elf.Load()
-                  elf.Close()
-                  log.info('elf.needed = ' + repr(elf.needed))
-              with log.info('Finding packages...'):
-                  fpm.dependencies = os_utils.DpkgSearchFiles(elf.needed, strip_version=True)
-              '''
               log.info('fpm.dependencies = ' + repr(fpm.dependencies))
 
           with log.info('Running FPM...'):
@@ -506,6 +498,16 @@ if __name__ == '__main__':
 
           with log.info('Generating repository cache...'):
             cmd(['freight-cache', '-p', '~/.gpass'])
+
+  with log.info('Serializing configuration for extension use...'):
+    ext_cfg = {
+        'hhvm_version': version,
+        'cmake_flags': cmake.flags,
+        'make_flags': MAKE_FLAGS,
+        'env_ext': env_ext,
+    }
+    with open('ext.cfg', 'w') as f:
+      yaml.dump(ext_cfg, f)
 
   # extcfg = cfg.get('paths.exts',{})
   # for name, extpath in extcfg:
