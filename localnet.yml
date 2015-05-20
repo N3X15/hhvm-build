@@ -1,3 +1,5 @@
+# Local test builds
+# DISTCC is available on the local network.
 bin:
   asm: cc
   cc: gcc-4.8
@@ -14,7 +16,7 @@ env:
     enabled: false
   distcc:
     # For local network builds. - N3X
-    enabled: false
+    enabled: true
     hosts:
       # VirtualBox VM
       # Only one core.

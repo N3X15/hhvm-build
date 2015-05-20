@@ -1,0 +1,41 @@
+# Configuration for Jenkins builds.
+# http://ci.nexisonline.net/job/hhvm-maestro-nightly
+bin:
+  asm: cc
+  cc: gcc-4.8
+  ccache: ccache
+  cxx: 'g++-4.8'
+  make: make
+  pump: distcc-pump
+env:
+  ccache:
+    # Causes problems
+    enabled: false
+  cotire:
+    # Buggy, will cause false sqlite3 errors if enabled.
+    enabled: false
+  distcc:
+    # For local network builds. - N3X
+    enabled: false
+    hosts: {}
+  cmake:
+    flags:
+      PCRE_SUPPORT_UTF: On
+  make:
+    flags: []
+    jobs: 5
+  packaging:
+    enabled: true
+    maintainer: Rob Nelson <nexisentertainment@gmail.com>
+    packages:
+      debian/jessie: true
+      debian/wheezy: false
+    # Requires ~/.gpass, with your passkey inside.
+    repo-deploy: true
+
+paths:
+  install: /tmp/hhvm-install
+  package: /tmp/hhvm-package
+  source: ./hhvm_src
+  exts:
+    - hhvm-pgsql
