@@ -1,18 +1,18 @@
 prebuild:
   # Import compile fix since Facebook wants me to waste my time with an issue report, which will be followed by a lengthy review period.
   # Why am I against an issue report?  Because it's a fucking three-line fix.
-  - chdir:
-      - dir: '{{ SOURCE_DIR }}/third-party/webscalesqlclient/webscalesql-5.6'
-    then:
-      - git reset --hard
-      - git pull origin webscalesql-5.6.23
+  #- chdir:
+  #    - dir: '{{ SOURCE_DIR }}/third-party/webscalesqlclient/webscalesql-5.6'
+  #  then:
+  #    - git reset --hard
+  #    - git pull origin webscalesql-5.6.23
 make-workspace:
   - cp -R {{ HHVMBUILD_DIR }}/*.md {{ PACKAGE_DIR }}/
   - cp -r {{ DISTRO_DIR }}/../skeleton/* {{ PACKAGE_DIR }}/
   #- cp -R {{ DISTRO_DIR }}/DEBIAN {{ PACKAGE_DIR }}/
   - cp -R {{ DISTRO_DIR }}/usr {{ PACKAGE_DIR }}/
   - echo Checking for {{ PACKAGE_DIR }}/deps...
-  - if: 
+  - if:
     - file-exists: '{{ PACKAGE_DIR }}/deps'
     then:
       - rm {{ PACKAGE_DIR }}/deps
@@ -20,7 +20,7 @@ make-workspace:
   - cp {{ SOURCE_DIR }}/hphp/hhvm/hhvm {{ PACKAGE_DIR }}/usr/bin/
   - chmod 755 {{ PACKAGE_DIR }}/usr/bin/hhvm
   - echo Checking for hh_server...
-  - if: 
+  - if:
     - file-exists: '{{ SOURCE_DIR }}/hphp/hack/bin/hh_server'
     then:
       - cp {{ SOURCE_DIR }}/hphp/hack/bin/hh_client {{ PACKAGE_DIR }}/usr/bin/
