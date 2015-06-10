@@ -363,7 +363,10 @@ if __name__ == '__main__':
             'DISTRO_DIR': os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
             'HHVMBUILD_DIR': HHVMBUILD_DIR
         })
-        if len(distro_cfg.get('prebuild', [])) > 0:
+        pbsteps = distro_cfg.get('prebuild', [])
+        if pbsteps is None:
+          pbsteps = []
+        if len(pbsteps) > 0:
           log.info('Performing prebuild steps...')
           origpath = os.path.abspath(os.getcwd())
           RunCommandsIn(distro_cfg.get('prebuild', []), distro_cfg, {
