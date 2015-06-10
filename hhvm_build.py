@@ -293,7 +293,7 @@ if __name__ == '__main__':
       'CXX': cfg.get('bin.cxx', 'g++-4.8'),
       'ASM': cfg.get('bin.asm', 'cc'),
 
-      'CMAKE_INCLUDE_PATH': tempfile.mkstemp().name,
+      'CMAKE_INCLUDE_PATH': tempfile.NamedTemporaryFile(delete=False).name,
       'CMAKE_LIBRARY_PATH': "/usr/lib/hhvm/",
       'HPHP_HOME': SOURCE_DIR,
       'MYSQL_UNIX_SOCK_ADDR': '/var/run/mysqld/mysqld.sock',

@@ -62,7 +62,7 @@ class Extension:
 
       self.patches = self.config.get('patches', {})
 
-  def build(self,clean=False):
+  def build(self, clean=False):
     with Chdir(self.repo_dir):
       with log.info('Checking repo for updates...'):
         self.repo.quiet = False
@@ -154,10 +154,10 @@ if __name__ == '__main__':
       'CXX': cfg.get('bin.cxx', 'g++-4.8'),
       'ASM': cfg.get('bin.asm', 'cc'),
 
-      'CMAKE_INCLUDE_PATH': tempfile.mkstemp(),
+      'CMAKE_INCLUDE_PATH': tempfile.NamedTemporaryFile(delete=False).name,
       'CMAKE_LIBRARY_PATH': "/usr/lib/hhvm/",
       'HPHP_HOME': SOURCE_DIR,
-      'MYSQL_UNIX_SOCK_ADDR':'/var/run/mysqld/mysqld.sock',
+      'MYSQL_UNIX_SOCK_ADDR': '/var/run/mysqld/mysqld.sock',
   })
 
   cmake = CMake()
