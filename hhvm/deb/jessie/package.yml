@@ -19,6 +19,11 @@ make-workspace:
   - mkdir -p {{ PACKAGE_DIR }}/usr/bin/
   - cp {{ SOURCE_DIR }}/hphp/hhvm/hhvm {{ PACKAGE_DIR }}/usr/bin/
   - chmod 755 {{ PACKAGE_DIR }}/usr/bin/hhvm
+  - if:
+    - file-exists: '{{ SOURCE_DIR }}/hphp/tools/oss-repo-mode'
+    then:
+        - cp {{ SOURCE_DIR }}/hphp/tools/oss-repo-mode {{ PACKAGE_DIR }}/usr/bin/hhvm-repo-mode
+        - chmod 755 {{ PACKAGE_DIR }}/usr/bin/hhvm-repo-mode
   - echo Checking for hh_server...
   - if:
     - file-exists: '{{ SOURCE_DIR }}/hphp/hack/bin/hh_server'
@@ -27,6 +32,11 @@ make-workspace:
       - cp {{ SOURCE_DIR }}/hphp/hack/bin/hh_server {{ PACKAGE_DIR }}/usr/bin/
       - chmod 755 {{ PACKAGE_DIR }}/usr/bin/hh_client
       - chmod 755 {{ PACKAGE_DIR }}/usr/bin/hh_server
+  - if:
+    - file-exists: '{{ SOURCE_DIR }}/hphp/hack/bin/hh_format'
+    then:
+      - cp $SOURCE/hphp/hack/bin/hh_format $PACKAGE/root/usr/bin/
+      - chmod 755 $PACKAGE/root/usr/bin/hh_format
   - if:
     - file-exists: '{{ SOURCE_DIR }}/hphp/hack/bin/h2tp'
     then:
