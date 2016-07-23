@@ -317,6 +317,7 @@ if __name__ == '__main__':
   job_flag = '-j' + str(cfg.get('env.make.jobs', 1))
   MAKE_FLAGS += [job_flag]
   NIGHTLY_DATE = datetime.datetime.utcnow().strftime('%Y.%m.%d')
+  VERSION=''
   iteration = int(os.environ.get('BUILD_NUMBER', '1'))
   # NIGHTLY_DATE += '.{:02d}'.format(iteration)
 
@@ -342,13 +343,38 @@ if __name__ == '__main__':
         branch = ''
         if NIGHTLY:
           branch = 'master'
-          REG_VERSION = re.compile(r'([0-9.]*-dev)')
+          REG_VERSION_CHUNK = re.compile(r'# define (HHVM_VERSION_[A-Z]+) (.*)$')
+          def get_version_chunk(line):
+            m = REG_VERSION_CHUNK.match(line.strip())
+            returm m.group(2)
           version_file = ''
-          with open('hphp/system/idl/constants.idl.json', 'r') as f:
-            version_file = f.read()
-          with open('hphp/system/idl/constants.idl.json', 'w') as f:
-            f.write(REG_VERSION.sub('\1+' + NIGHTLY_DATE, version_file))
-          log.info('Version set.')
+          #with open('hphp/system/idl/constants.idl.json', 'r') as f:
+          #  version_file = f.read()
+          major=0
+          minor=0
+          patch=0
+          suffix=''
+          with open('hphp/runtime/version/version.h','r') as f:
+              #ifndef HHVM_VERSION_OVERRIDE
+              # define HHVM_VERSION_MAJOR 3
+              # define HHVM_VERSION_MINOR 15
+              # define HHVM_VERSION_PATCH 0
+              # define HHVM_VERSION_SUFFIX "-dev"
+              #endif
+              for line in f:
+                if line.startswith('# define HHVM_VERSION_MAJOR'):
+                  major=int(get_version_chunk(line))
+                if line.startswith('# define HHVM_VERSION_MINOR'):
+                  minor=int(get_version_chunk(line))
+                if line.startswith('# define HHVM_VERSION_PATCH'):
+                  patch=int(get_version_chunk(line))
+                if line.startswith('# define HHVM_VERSION_SUFFIX'):
+                  suffix=int(get_version_chunk(line))
+          HHVM_VERSION='{0}.{1}.{2}{3}+{4}'.format(major,minor,patch,suffix,NIGHTLY_DATE)
+          log.info('HHVM Version set: %s',HHVM_VERSION)
+          cmake.setFlag('HHVM_VERSION_OVERRIDE',HHVM_VERSION)
+          #with open('hphp/system/idl/constants.idl.json', 'w') as f:
+          #  f.write(REG_VERSION.sub('\1+' + NIGHTLY_DATE, version_file))
         else:
           branch = 'HHVM-{}'.format(HHVM_VERSION)
 
@@ -358,7 +384,7 @@ if __name__ == '__main__':
         repo.UpdateSubmodules()
 
         distro_info = os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE, 'package.yml')
-        distro_cfg = Config(distro_info, template_dir='/', variables={
+        distro_cfg = YAMLConfig(distro_info, template_dir='/', variables={
             'SOURCE_DIR': SOURCE_DIR,
             'DISTRO_DIR': os.path.join(HHVMBUILD_DIR, 'hhvm', DISTRO_NAME, DISTRO_RELEASE),
             'HHVMBUILD_DIR': HHVMBUILD_DIR
