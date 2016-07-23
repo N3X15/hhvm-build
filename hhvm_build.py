@@ -346,7 +346,7 @@ if __name__ == '__main__':
           REG_VERSION_CHUNK = re.compile(r'# define (HHVM_VERSION_[A-Z]+) (.*)$')
           def get_version_chunk(line):
             m = REG_VERSION_CHUNK.match(line.strip())
-            returm m.group(2)
+            return m.group(2)
           version_file = ''
           #with open('hphp/system/idl/constants.idl.json', 'r') as f:
           #  version_file = f.read()
