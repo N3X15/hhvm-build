@@ -369,7 +369,7 @@ if __name__ == '__main__':
                 if line.startswith('# define HHVM_VERSION_PATCH'):
                   patch=int(get_version_chunk(line))
                 if line.startswith('# define HHVM_VERSION_SUFFIX'):
-                  suffix=int(get_version_chunk(line))
+                  suffix=get_version_chunk(line).strip('"')
           HHVM_VERSION='{0}.{1}.{2}{3}+{4}'.format(major,minor,patch,suffix,NIGHTLY_DATE)
           log.info('HHVM Version set: %s',HHVM_VERSION)
           cmake.setFlag('HHVM_VERSION_OVERRIDE',HHVM_VERSION)
