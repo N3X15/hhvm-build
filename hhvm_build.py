@@ -309,9 +309,9 @@ if __name__ == '__main__':
 
   MAKE_FLAGS = cfg.get('env.make.flags', [])
 
-  cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug' if DEBUG else 'Release')
+  cmake.setFlag('CMAKE_BUILD_TYPE',     'Debug' if DEBUG else 'Release')
   cmake.setFlag('CMAKE_INSTALL_PREFIX', '/usr')
-  cmake.setFlag('BOOST_LIBRARYDIR', BOOST_LIBRARYDIR)
+  cmake.setFlag('BOOST_LIBRARYDIR',     BOOST_LIBRARYDIR)
 
   configure_ccache(cfg, cmake)
   configure_distcc(cfg, cmake)
@@ -319,10 +319,13 @@ if __name__ == '__main__':
 
   job_flag = '-j' + str(cfg.get('env.make.jobs', 1))
   MAKE_FLAGS += [job_flag]
-  NIGHTLY_DATE = datetime.datetime.utcnow().strftime('%Y.%m.%d')
+  #NIGHTLY_DATE = datetime.datetime.utcnow().strftime('%Y.%m.%d')
+  # 20160102
+  NIGHTLY_DATE = datetime.datetime.utcnow().strftime('%Y%m%d')
   VERSION=''
   iteration = int(os.environ.get('BUILD_NUMBER', '1'))
-  # NIGHTLY_DATE += '.{:02d}'.format(iteration)
+  NIGHTLY_DATE += '{:04d}'.format(iteration)
+  # End format: YYYYMMDDBB - BB being build number
 
   repo = GitRepository(SOURCE_DIR, None)
 
