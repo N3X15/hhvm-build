@@ -354,7 +354,7 @@ if __name__ == '__main__':
           minor=0
           patch=0
           suffix=''
-          with open('hphp/runtime/version/version.h','r') as f:
+          with open('hphp/tools/version/version.h','r') as f:
               #ifndef HHVM_VERSION_OVERRIDE
               # define HHVM_VERSION_MAJOR 3
               # define HHVM_VERSION_MINOR 15
