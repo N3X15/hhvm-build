@@ -25,6 +25,7 @@ from buildtools.wrapper import CMake, FPM, configure_ccache, configure_cotire, c
 from buildtools.repo.git import GitRepository
 from buildtools.posix.elf import ELFInfo
 
+BOOST_LIBRARYDIR='/usr/lib/x86_64-linux-gnu'
 
 def bool2yn(b):
   return 'Y' if b else 'N'
@@ -310,6 +311,7 @@ if __name__ == '__main__':
 
   cmake.setFlag('CMAKE_BUILD_TYPE', 'Debug' if DEBUG else 'Release')
   cmake.setFlag('CMAKE_INSTALL_PREFIX', '/usr')
+  cmake.setFlag('BOOST_LIBRARYDIR', BOOST_LIBRARYDIR)
 
   configure_ccache(cfg, cmake)
   configure_distcc(cfg, cmake)
