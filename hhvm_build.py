@@ -312,6 +312,7 @@ if __name__ == '__main__':
   cmake.setFlag('CMAKE_BUILD_TYPE',     'Debug' if DEBUG else 'Release')
   cmake.setFlag('CMAKE_INSTALL_PREFIX', '/usr')
   cmake.setFlag('BOOST_LIBRARYDIR',     BOOST_LIBRARYDIR)
+  cmake.setFlag('ENABLE_LD_GOLD',       "Off")
 
   configure_ccache(cfg, cmake)
   configure_distcc(cfg, cmake)
@@ -325,7 +326,7 @@ if __name__ == '__main__':
   VERSION=''
   iteration = int(os.environ.get('BUILD_NUMBER', '1'))
   NIGHTLY_DATE += '{:04d}'.format(iteration)
-  # End format: YYYYMMDDBB - BB being build number
+  # End format: YYYYMMDDBBBB - BB being build number
 
   repo = GitRepository(SOURCE_DIR, None)
 
